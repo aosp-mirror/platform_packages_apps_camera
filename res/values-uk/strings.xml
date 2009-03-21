@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (C) 2009 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="all_images">"Всі зображення"</string>
+    <string name="all_videos">"Усе відео"</string>
+    <string name="camera_label">"Камера"</string>
+    <string name="gallery_picker_label">"Галерея"</string>
+    <string name="gallery_camera_bucket_name">"Фотографії з камери"</string>
+    <string name="gallery_camera_videos_bucket_name">"Відео з камери"</string>
+    <string name="switch_to_video_lable">"Перейти в режим відео"</string>
+    <string name="switch_to_camera_lable">"Перейти в режим камери"</string>
+    <string name="crop_label">"Обрізати зображення"</string>
+    <string name="view_label">"Переглянути зображення"</string>
+    <string name="preferences_label">"Налаштування камери"</string>
+    <string name="wait">"Зачекайте…"</string>
+    <string name="no_storage">"Перед використанням камери вставте карту SD."</string>
+    <string name="not_enough_space">"Карта SD заповнена."</string>
+	<string name="preparing_sd">"Підготування карти SD..."</string>
+    <string name="wallpaper">"Встановлюється фоновий малюнок, зачекайте…"</string>
+    <string name="savingImage">"Відбувається збереження зображення…"</string>
+    <string name="runningFaceDetection">"Зачекайте…"</string>
+    <string name="flip_orientation">"Змінити орієнтацію"</string>
+    <string name="settings">"Налаштування"</string>
+    <string name="view">"Переглянути"</string>
+    <string name="details">"Дані"</string>
+    <string name="rotate">"Повернути"</string>
+    <string name="rotate_left">"Повернути наліво"</string>
+    <string name="rotate_right">"Повернути направо"</string>
+    <string name="slide_show">"Слайд-шоу"</string>
+    <string name="capture_picture">"Зробити фотографію"</string>
+    <string name="capture_video">"Зняти відео"</string>
+    <string name="crop_save_text">"Зберегти"</string>
+    <string name="crop_discard_text">"Відмінити"</string>
+    <string name="confirm_delete_title">"Видалення"</string>
+    <string name="confirm_delete_message">"Зображення буде видалено."</string>
+    <string name="confirm_delete_video_message">"Відео буде видалено."</string>
+    <string name="camera_toss">"Видалення"</string>
+    <string name="camera_gallery">"Галерея"</string>
+    <string name="camera_share">"Відправити"</string>
+    <string name="camera_set">"Встановити як"</string>
+    <string name="camera_play">"Відтворити"</string>
+    <string name="camera_attach">"Вкласти"</string>
+    <string name="camera_cancel">"Відмінити"</string>
+    <string name="camera_crop">"Обрізати"</string>
+    <string name="camera_tossing">"Відбувається видалення…"</string>
+    <string name="no_way_to_share_image">"Відправити це зображення неможливо."</string>
+    <string name="no_way_to_share_video">"Відправити це відео неможливо."</string>
+    <string name="camera_gallery_photos_text">"Галерея"</string>
+    <string name="camera_pick_wallpaper">"Зображення"</string>
+    <string name="camera_setas_wallpaper">"Фоновий малюнок"</string>
+    <string name="pref_gallery_category">"Загальні налаштування"</string>
+    <string name="pref_slideshow_category">"Налаштування слайд-шоу"</string>
+    <string name="pref_camera_general_settings_category">"Загальні налаштування"</string>
+    <string name="pref_gallery_size_title">"Різмір зображення"</string>
+    <string name="pref_gallery_size_summary">"Вибір відображаючого розміру зображеннь"</string>
+    <string name="pref_gallery_size_dialogtitle">"Розмір зображення"</string>
+  <string-array name="pref_gallery_size_choices">
+    <item>"Великий"</item>
+    <item>"Дрібний"</item>
+  </string-array>
+    <string name="pref_gallery_sort_title">"Сортування зображеннь"</string>
+    <string name="pref_gallery_sort_summary">"Оберіть порядок сортування зображеннь і відео"</string>
+    <string name="pref_gallery_sort_dialogtitle">"Сортування зображеннь"</string>
+  <string-array name="pref_gallery_sort_choices">
+    <item>"Починаючи з нових"</item>
+    <item>"Закінчуються новими"</item>
+  </string-array>
+    <string name="pref_gallery_slideshow_interval_title">"Інтервал слайд-шоу"</string>
+    <string name="pref_gallery_slideshow_interval_summary">"Оберіть час відображення кожного слайду"</string>
+    <string name="pref_gallery_slideshow_interval_dialogtitle">"Інтервал слайд-шоу"</string>
+  <string-array name="pref_gallery_slideshow_interval_choices">
+    <item>"2 секунди"</item>
+    <item>"3 секунди"</item>
+    <item>"4 секунди"</item>
+  </string-array>
+    <string name="pref_gallery_slideshow_transition_title">"Перехід слайд-шоу"</string>
+    <string name="pref_gallery_slideshow_transition_summary">"Оберіть ефект для переходу від одного слайду до іншого"</string>
+    <string name="pref_gallery_slideshow_transition_dialogtitle">"Перехід слайд-шоу"</string>
+  <string-array name="pref_gallery_slideshow_transition_choices">
+    <item>"Затемнення"</item>
+    <item>"Слайди зліва направо"</item>
+    <item>"Слайди зверху вниз"</item>
+    <item>"Випадковий вибір"</item>
+  </string-array>
+    <string name="pref_gallery_slideshow_repeat_title">"Повторити слайд-шоу"</string>
+    <string name="pref_gallery_slideshow_repeat_summary">"Відтворити слайд-шоу декілька разів"</string>
+    <string name="pref_gallery_slideshow_shuffle_title">"Змішати слайди"</string>
+    <string name="pref_gallery_slideshow_shuffle_summary">"Показувати зображення у випадковому порядку"</string>
+    <string name="pref_camera_recordlocation_title">"Зберігати адресу в зображеннях"</string>
+    <string name="pref_camera_recordlocation_summary">"Записувати адресу в дані зображення"</string>
+    <string name="pref_camera_videoquality_category">"Якість відео"</string>
+    <string name="pref_camera_videoquality_title">"Вибір якості відео"</string>
+    <string name="pref_camera_videoquality_entry_0">"Низька (для MMS)"</string>
+    <string name="pref_camera_videoquality_entry_1">"Висока (для карти SD)"</string>
+    <string name="pref_camera_videoquality_dialogtitle">"Якість відео"</string>
+    <string name="camerasettings">"Налаштування"</string>
+    <string name="image_gallery_NoImageView_text">"Немає мультимедійних матеріалів."</string>      
+    <string name="pref_gallery_confirm_delete_title">"Підтвердження видалення"</string>
+    <string name="pref_gallery_confirm_delete_summary">"Просити підтвердження перед видаленням зображення або відео"</string>
+    <string name="details_panel_title">"Дані"</string>
+    <string name="details_file_size">"Розмір файлу:"</string>
+    <string name="details_image_resolution">"Роздільна здатність:"</string>
+    <string name="details_duration">"Тривалість:"</string>
+    <string name="details_date_taken">"Дата зйомки:"</string>
+    <string name="details_frame_rate">"Частота кадров:"</string>
+    <string name="details_bit_rate">"Бітрейт:"</string>
+    <string name="details_codec">"Кодек:"</string>
+    <string name="details_format">"Формат:"</string>
+    <string name="details_dimension_x">"%1$d на %2$d"</string>
+    <string name="details_ms">"%1$02d:%2$02d"</string>
+    <string name="details_hms">"%1$d:%2$02d:%3$02d"</string>
+    <string name="details_fps">"%1$d кадров/с"</string>
+    <string name="details_kbps">"%1$d кбіт/с"</string>
+    <string name="details_mbps">"%1$g мбіт/с"</string>
+    <string name="details_ok">"ОК"</string>
+    <string name="context_menu_header">"Параметри зображення"</string>
+    <string name="video_context_menu_header">"Параметри відео"</string>
+    <string name="multiface_crop_help">"Щоб розпочати, виберіть об'єкт."</string>
+    <string name="photos_gallery_title">"Галерея"</string>
+    <string name="pick_photos_gallery_title">"Вибір зображення"</string>
+    <string name="videos_gallery_title">"Галерея"</string>
+    <string name="pick_videos_gallery_title">"Вибрати відео"</string>
+    <string name="loading_progress_format_string">"Залишилось: <xliff:g id="COUNTER">%d</xliff:g>"</string>
+    <string name="sendImage">"Відправити зображення за допомогою"</string>
+    <string name="setImage">"Встановити зображення як"</string>
+    <string name="sendVideo">"Відправити видео за допомогою"</string>
+    <string name="movieviewlabel">"Фільми"</string>
+    <string name="loading_video">"Відбувається завантаження відео…"</string>
+	<string name="spaceIsLow_title">"Залишилось мало місця"</string>
+    <string name="spaceIsLow_content">"Місце на карті SD закінчується. Змініть налаштування яскравості або видаліть елементи із галереї."</string>
+    <string name="resume_playing_title">"Продовження перегляду відео"</string>
+    <string name="resume_playing_message">"Продовжити відтворення з %s ?"</string>
+    <string name="resume_playing_resume">"Продовжити відтворення"</string>
+    <string name="resume_playing_restart">"Почати з початку"</string>
+    <string name="gadget_title">"Рамка фотографії"</string>
+    <string name="video_file_name_format">"\'video\'-yyyy-MM-dd-HH-mm-ss"</string>
+    <!-- no translation found for file_info_title (1628963357466012538) -->
+    <skip />
+    <!-- no translation found for video_exceed_mms_limit (3835075281230780010) -->
+    <skip />
+</resources>
