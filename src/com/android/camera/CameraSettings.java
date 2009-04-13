@@ -64,6 +64,9 @@ public class CameraSettings extends PreferenceActivity
     protected void onResume() {
         super.onResume();
         updateVideoQuality();
+        updateAudioEncoder();
+        updateVideoEncoder();
+        updateOutputFormat();
     }
 
     private void initUI() {
