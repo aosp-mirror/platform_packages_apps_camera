@@ -17,14 +17,13 @@
 package com.android.camera;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -32,11 +31,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.location.LocationManager;
-import android.media.MediaMetadataRetriever;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
@@ -58,19 +56,19 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.MenuItem.OnMenuItemClickListener;
+import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class VideoCamera extends Activity implements View.OnClickListener, SurfaceHolder.Callback {
+public class VideoCamera extends Activity implements View.OnClickListener,
+    ShutterButton.OnShutterButtonListener, SurfaceHolder.Callback, MediaRecorder.OnErrorListener, MediaRecorder.OnInfoListener {
 
     private static final String TAG = "videocamera";
 
     private static final boolean DEBUG = true;
     private static final boolean DEBUG_SUPPRESS_AUDIO_RECORDING = DEBUG && false;
-    private static final boolean DEBUG_DO_NOT_REUSE_MEDIA_RECORDER = DEBUG && true;
-    private static final boolean DEBUG_LOG_APP_LIFECYCLE = DEBUG && false;
 
     private static final int CLEAR_SCREEN_DELAY = 4;
     private static final int UPDATE_RECORD_TIME = 5;
@@ -80,6 +78,11 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
     private static final long NO_STORAGE_ERROR = -1L;
     private static final long CANNOT_STAT_ERROR = -2L;
     private static final long LOW_STORAGE_THRESHOLD = 512L * 1024L;
+    private static final long SHARE_FILE_LENGTH_LIMIT = 3L * 1024L * 1024L;
+
+    private static final int STORAGE_STATUS_OK = 0;
+    private static final int STORAGE_STATUS_LOW = 1;
+    private static final int STORAGE_STATUS_NONE = 2;
 
     public static final int MENU_SETTINGS = 6;
     public static final int MENU_GALLERY_PHOTOS = 7;
@@ -94,33 +97,42 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
     private static final float VIDEO_ASPECT_RATIO = 176.0f / 144.0f;
     VideoPreview mVideoPreview;
     SurfaceHolder mSurfaceHolder = null;
-    ImageView mBlackout = null;
     ImageView mVideoFrame;
-    Bitmap mVideoFrameBitmap;
+
+    private boolean mIsVideoCaptureIntent;
+    // mLastPictureButton and mThumbController
+    // are non-null only if isVideoCaptureIntent() is true;
+    private ImageView mLastPictureButton;
+    private ThumbnailController mThumbController;
+
+    private static final int MAX_RECORDING_DURATION_MS = 10 * 60 * 1000;
+
+    private int mStorageStatus = STORAGE_STATUS_OK;
 
     private MediaRecorder mMediaRecorder;
     private boolean mMediaRecorderRecording = false;
-    private boolean mNeedToRegisterRecording;
     private long mRecordingStartTime;
     // The video file that the hardware camera is about to record into
     // (or is recording into.)
     private String mCameraVideoFilename;
+    private FileDescriptor mCameraVideoFileDescriptor;
 
     // The video file that has already been recorded, and that is being
     // examined by the user.
     private String mCurrentVideoFilename;
+    private long mCurrentVideoFileLength = 0L;
     private Uri mCurrentVideoUri;
     private ContentValues mCurrentVideoValues;
 
     boolean mPausing = false;
 
     static ContentResolver mContentResolver;
-    boolean mDidRegister = false;
 
     int mCurrentZoomIndex = 0;
 
-    private ImageView mModeIndicatorView;
+    private ShutterButton mShutterButton;
     private TextView mRecordingTimeView;
+    private boolean mRecordingTimeCountsDown = false;
 
     ArrayList<MenuItem> mGalleryItems = new ArrayList<MenuItem>();
 
@@ -136,7 +148,7 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
             switch (msg.what) {
 
                 case CLEAR_SCREEN_DELAY: {
-                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                    clearScreenOnFlag();
                     break;
                 }
 
@@ -144,20 +156,53 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
                     if (mMediaRecorderRecording) {
                         long now = SystemClock.uptimeMillis();
                         long delta = now - mRecordingStartTime;
-                        long seconds = delta / 1000;
+
+                        // Starting a minute before reaching the max duration
+                        // limit, we'll countdown the remaining time instead.
+                        boolean countdown_remaining_time =
+                            (delta >= MAX_RECORDING_DURATION_MS - 60000);
+
+                        if (countdown_remaining_time) {
+                            delta = Math.max(0, MAX_RECORDING_DURATION_MS - delta);
+                        }
+
+                        long seconds = (delta + 500) / 1000;  // round to nearest
                         long minutes = seconds / 60;
+                        long hours = minutes / 60;
+                        long remainderMinutes = minutes - (hours * 60);
                         long remainderSeconds = seconds - (minutes * 60);
 
                         String secondsString = Long.toString(remainderSeconds);
                         if (secondsString.length() < 2) {
                             secondsString = "0" + secondsString;
                         }
-                        String minutesString = Long.toString(minutes);
+                        String minutesString = Long.toString(remainderMinutes);
                         if (minutesString.length() < 2) {
                             minutesString = "0" + minutesString;
                         }
                         String text = minutesString + ":" + secondsString;
+                        if (hours > 0) {
+                            String hoursString = Long.toString(hours);
+                            if (hoursString.length() < 2) {
+                                hoursString = "0" + hoursString;
+                            }
+                            text = hoursString + ":" + text;
+                        }
                         mRecordingTimeView.setText(text);
+
+                        if (mRecordingTimeCountsDown != countdown_remaining_time) {
+                            // Avoid setting the color on every update, do it only
+                            // when it needs changing.
+
+                            mRecordingTimeCountsDown = countdown_remaining_time;
+
+                            int color = getResources().getColor(
+                                    countdown_remaining_time ? R.color.recording_time_remaining_text
+                                                             : R.color.recording_time_elapsed_text);
+
+                            mRecordingTimeView.setTextColor(color);
+                        }
+
                         // Work around a limitation of the T-Mobile G1: The T-Mobile
                         // hardware blitter can't pixel-accurately scale and clip at the same time,
                         // and the SurfaceFlinger doesn't attempt to work around this limitation.
@@ -180,18 +225,20 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (action.equals(Intent.ACTION_MEDIA_MOUNTED)) {
-                // SD card available
-                // TODO put up a "please wait" message
-                // TODO also listen for the media scanner finished message
-                showStorageToast();
+            if (action.equals(Intent.ACTION_MEDIA_EJECT)) {
+                updateAndShowStorageHint(false);
+                stopVideoRecording();
+                initializeVideo();
+            } else if (action.equals(Intent.ACTION_MEDIA_MOUNTED)) {
+                updateAndShowStorageHint(true);
+                initializeVideo();
             } else if (action.equals(Intent.ACTION_MEDIA_UNMOUNTED)) {
                 // SD card unavailable
-                showStorageToast();
+                // handled in ACTION_MEDIA_EJECT
             } else if (action.equals(Intent.ACTION_MEDIA_SCANNER_STARTED)) {
                 Toast.makeText(VideoCamera.this, getResources().getString(R.string.wait), 5000);
             } else if (action.equals(Intent.ACTION_MEDIA_SCANNER_FINISHED)) {
-                showStorageToast();
+                updateAndShowStorageHint(true);
             }
         }
     };
@@ -203,9 +250,6 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
     /** Called with the activity is first created. */
     @Override
     public void onCreate(Bundle icicle) {
-        if (DEBUG_LOG_APP_LIFECYCLE) {
-            Log.v(TAG, "onCreate " + this.hashCode());
-        }
         super.onCreate(icicle);
 
         mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -215,9 +259,6 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
 
         //setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
         requestWindowFeature(Window.FEATURE_PROGRESS);
-
-        Window win = getWindow();
-        win.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.video_camera);
 
         mVideoPreview = (VideoPreview) findViewById(R.id.camera_preview);
@@ -230,69 +271,52 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         holder.addCallback(this);
         holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
-        mBlackout = (ImageView) findViewById(R.id.blackout);
-        mBlackout.setBackgroundDrawable(new ColorDrawable(0xFF000000));
-
         mPostPictureAlert = findViewById(R.id.post_picture_panel);
 
         int[] ids = new int[]{R.id.play, R.id.share, R.id.discard,
-                R.id.cancel, R.id.attach, R.id.mode_indicator};
+                R.id.cancel, R.id.attach};
         for (int id : ids) {
             findViewById(id).setOnClickListener(this);
         }
 
-        mModeIndicatorView = (ImageView) findViewById(R.id.mode_indicator);
+        mShutterButton = (ShutterButton) findViewById(R.id.shutter_button);
+        mShutterButton.setOnShutterButtonListener(this);
         mRecordingTimeView = (TextView) findViewById(R.id.recording_time);
         mVideoFrame = (ImageView) findViewById(R.id.video_frame);
+        mIsVideoCaptureIntent = isVideoCaptureIntent();
+        if (!mIsVideoCaptureIntent) {
+            mLastPictureButton = (ImageView) findViewById(R.id.last_picture_button);
+            mLastPictureButton.setOnClickListener(this);
+            Drawable frame = getResources().getDrawable(R.drawable.frame_thumbnail);
+            mThumbController = new ThumbnailController(mLastPictureButton,
+                    frame, mContentResolver);
+            mThumbController.loadData(ImageManager.getLastVideoThumbPath());
+        }
     }
 
-    @Override
-    public void onStart() {
-        if (DEBUG_LOG_APP_LIFECYCLE) {
-            Log.v(TAG, "onStart " + this.hashCode());
+    private void startShareVideoActivity() {
+        if (mCurrentVideoFileLength > SHARE_FILE_LENGTH_LIMIT) {
+            Toast.makeText(VideoCamera.this,
+                    R.string.too_large_to_attach, Toast.LENGTH_LONG).show();
+            return;
         }
-        super.onStart();
-
-        final View hintView = findViewById(R.id.hint_toast);
-        if (hintView != null)
-            hintView.setVisibility(View.GONE);
-
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                final boolean storageOK = getAvailableStorage() >= LOW_STORAGE_THRESHOLD;
-                if (hintView == null)
-                    return;
-
-                if (storageOK) {
-                    mHandler.post(new Runnable() {
-                        public void run() {
-                            hintView.setVisibility(View.VISIBLE);
-                        }
-                    });
-                    mHandler.postDelayed(new Runnable() {
-                        public void run() {
-                            Animation a = new android.view.animation.AlphaAnimation(1F, 0F);
-                            a.setDuration(500);
-                            a.startNow();
-                            hintView.setAnimation(a);
-                            hintView.setVisibility(View.GONE);
-                        }
-                    }, 3000);
-                } else {
-                    mHandler.post(new Runnable() {
-                        public void run() {
-                            hintView.setVisibility(View.GONE);
-                            showStorageToast();
-                        }
-                    });
-                }
-            }
-        });
-        t.start();
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_SEND);
+        intent.setType("video/3gpp");
+        intent.putExtra(Intent.EXTRA_STREAM, mCurrentVideoUri);
+        try {
+            startActivity(Intent.createChooser(intent, getText(R.string.sendVideo)));
+        } catch (android.content.ActivityNotFoundException ex) {
+            Toast.makeText(VideoCamera.this, R.string.no_way_to_share_video, Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void onClick(View v) {
         switch (v.getId()) {
+
+            case R.id.gallery:
+                MenuHelper.gotoCameraVideoGallery(this);
+                break;
 
             case R.id.attach:
                 doReturnToCaller(true);
@@ -303,21 +327,17 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
                 break;
 
             case R.id.discard: {
-                discardCurrentVideoAndStartPreview();
+                Runnable deleteCallback = new Runnable() {
+                    public void run() {
+                        discardCurrentVideoAndStartPreview();
+                    }
+                };
+                MenuHelper.deleteVideo(this, deleteCallback);
                 break;
             }
 
             case R.id.share: {
-                Intent intent = new Intent();
-                intent.setAction(Intent.ACTION_SEND);
-                intent.setType("video/3gpp");
-                intent.putExtra(Intent.EXTRA_STREAM, mCurrentVideoUri);
-                try {
-                    startActivity(Intent.createChooser(intent, getText(R.string.sendVideo)));
-                } catch (android.content.ActivityNotFoundException ex) {
-                    Toast.makeText(VideoCamera.this, R.string.no_way_to_share_video, Toast.LENGTH_SHORT).show();
-                }
-
+                startShareVideoActivity();
                 break;
             }
 
@@ -326,23 +346,37 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
                 break;
             }
 
-            case R.id.mode_indicator:
+            case R.id.last_picture_button: {
+                stopVideoRecordingAndShowAlert();
+                break;
+            }
+        }
+    }
+
+    public void onShutterButtonFocus(ShutterButton button, boolean pressed) {
+        // Do nothing (everything happens in onShutterButtonClick).
+    }
+
+    public void onShutterButtonClick(ShutterButton button) {
+        switch (button.getId()) {
+            case R.id.shutter_button:
                 if (mMediaRecorderRecording) {
-                    stopVideoRecordingAndDisplayDialog();
-                } else if (mVideoFrame.getVisibility() == View.VISIBLE) {
-                    doStartCaptureMode();
+                    if (mIsVideoCaptureIntent) {
+                        stopVideoRecordingAndShowAlert();
+                    } else {
+                        stopVideoRecordingAndGetThumbnail();
+                        initializeVideo();
+                    }
+                } else if (isAlertVisible()) {
+                    if (mIsVideoCaptureIntent) {
+                        discardCurrentVideoAndStartPreview();
+                    } else {
+                        hideAlertAndStartVideoRecording();
+                    }
                 } else {
                     startVideoRecording();
                 }
                 break;
-        }
-    }
-
-    private void doStartCaptureMode() {
-        if (isVideoCaptureIntent()) {
-            discardCurrentVideoAndStartPreview();
-        } else {
-            hideVideoFrameAndStartPreview();
         }
     }
 
@@ -358,109 +392,140 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
 
     private void discardCurrentVideoAndStartPreview() {
         deleteCurrentVideo();
-        hideVideoFrameAndStartPreview();
+        hideAlertAndStartPreview();
     }
 
-    private void showStorageToast() {
-        long remaining = getAvailableStorage();
+    private OnScreenHint mStorageHint;
 
-        if (remaining == NO_STORAGE_ERROR) {
-            Toast.makeText(this, getString(R.string.no_storage), Toast.LENGTH_LONG).show();
-        } else if (remaining < LOW_STORAGE_THRESHOLD) {
-            new AlertDialog.Builder(this).setTitle(R.string.spaceIsLow_title)
-                .setMessage(R.string.spaceIsLow_content)
-                .show();
+    private void updateAndShowStorageHint(boolean mayHaveSd) {
+        mStorageStatus = getStorageStatus(mayHaveSd);
+        showStorageHint();
+    }
+
+    private void showStorageHint() {
+        String errorMessage = null;
+        switch (mStorageStatus) {
+        case STORAGE_STATUS_NONE:
+            errorMessage = getString(R.string.no_storage);
+            break;
+        case STORAGE_STATUS_LOW:
+            errorMessage = getString(R.string.spaceIsLow_content);
         }
+        if (errorMessage != null) {
+            if (mStorageHint == null) {
+                mStorageHint = OnScreenHint.makeText(this, errorMessage);
+            } else {
+                mStorageHint.setText(errorMessage);
+            }
+            mStorageHint.show();
+        } else if (mStorageHint != null) {
+            mStorageHint.cancel();
+            mStorageHint = null;
+        }
+    }
+
+    private int getStorageStatus(boolean mayHaveSd) {
+        long remaining = mayHaveSd ? getAvailableStorage() : NO_STORAGE_ERROR;
+        if (remaining == NO_STORAGE_ERROR) {
+            return STORAGE_STATUS_NONE;
+        }
+        return remaining < LOW_STORAGE_THRESHOLD
+                ? STORAGE_STATUS_LOW : STORAGE_STATUS_OK;
     }
 
     @Override
     public void onResume() {
-        if (DEBUG_LOG_APP_LIFECYCLE) {
-            Log.v(TAG, "onResume " + this.hashCode());
-        }
         super.onResume();
-        mHandler.sendEmptyMessageDelayed(CLEAR_SCREEN_DELAY, SCREEN_DELAY);
+
+        setScreenTimeoutLong();
 
         mPausing = false;
 
         // install an intent filter to receive SD card related events.
         IntentFilter intentFilter = new IntentFilter(Intent.ACTION_MEDIA_MOUNTED);
+        intentFilter.addAction(Intent.ACTION_MEDIA_EJECT);
         intentFilter.addAction(Intent.ACTION_MEDIA_UNMOUNTED);
         intentFilter.addAction(Intent.ACTION_MEDIA_SCANNER_STARTED);
         intentFilter.addAction(Intent.ACTION_MEDIA_SCANNER_FINISHED);
         intentFilter.addDataScheme("file");
         registerReceiver(mReceiver, intentFilter);
-        mDidRegister = true;
+        mStorageStatus = getStorageStatus(true);
 
-        mBlackout.setVisibility(View.INVISIBLE);
-        if (mVideoFrameBitmap == null) {
-            initializeVideo();
-        } else {
-            showPostRecordingAlert();
-        }
+        mHandler.postDelayed(new Runnable() {
+            public void run() {
+                showStorageHint();
+            }
+        }, 200);
+
+        initializeVideo();
     }
 
     @Override
     public void onStop() {
-        if (DEBUG_LOG_APP_LIFECYCLE) {
-            Log.v(TAG, "onStop " + this.hashCode());
-        }
-        stopVideoRecording();
-        mHandler.removeMessages(CLEAR_SCREEN_DELAY);
+        setScreenTimeoutSystemDefault();
         super.onStop();
     }
 
     @Override
     protected void onPause() {
-        if (DEBUG_LOG_APP_LIFECYCLE) {
-            Log.v(TAG, "onPause " + this.hashCode());
-        }
         super.onPause();
 
-        stopVideoRecording();
-        hidePostPictureAlert();
+        // This is similar to what mShutterButton.performClick() does,
+        // but not quite the same.
+        if (mMediaRecorderRecording) {
+            if (mIsVideoCaptureIntent) {
+                stopVideoRecordingAndShowAlert();
+            } else {
+                stopVideoRecordingAndGetThumbnail();
+            }
+        } else {
+            stopVideoRecording();
+        }
 
         mPausing = true;
 
-        if (mDidRegister) {
-            unregisterReceiver(mReceiver);
-            mDidRegister = false;
+        unregisterReceiver(mReceiver);
+        setScreenTimeoutSystemDefault();
+
+        if (!mIsVideoCaptureIntent) {
+            mThumbController.storeData(ImageManager.getLastVideoThumbPath());
         }
-        mBlackout.setVisibility(View.VISIBLE);
+
+        if (mStorageHint != null) {
+            mStorageHint.cancel();
+            mStorageHint = null;
+        }
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        mHandler.sendEmptyMessageDelayed(CLEAR_SCREEN_DELAY, SCREEN_DELAY);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setScreenTimeoutLong();
 
         switch (keyCode) {
             case KeyEvent.KEYCODE_BACK:
                 if (mMediaRecorderRecording) {
-                    Log.v(TAG, "onKeyBack");
-                    stopVideoRecordingAndDisplayDialog();
+                    mShutterButton.performClick();
                     return true;
-                } else if(isPostRecordingAlertVisible()) {
-                    hideVideoFrameAndStartPreview();
+                } else if(isAlertVisible()) {
+                    hideAlertAndStartPreview();
                     return true;
                 }
                 break;
-            case KeyEvent.KEYCODE_FOCUS:
-                return true;
             case KeyEvent.KEYCODE_CAMERA:
-            case KeyEvent.KEYCODE_DPAD_CENTER:
                 if (event.getRepeatCount() == 0) {
-                    if (!mMediaRecorderRecording) {
-                        startVideoRecording();
-                    } else {
-                        stopVideoRecordingAndDisplayDialog();
-                    }
+                    mShutterButton.performClick();
                     return true;
                 }
-                return true;
+                break;
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+                if (event.getRepeatCount() == 0) {
+                    mShutterButton.performClick();
+                    return true;
+                }
+                break;
             case KeyEvent.KEYCODE_MENU:
                 if (mMediaRecorderRecording) {
-                    stopVideoRecordingAndDisplayDialog();
+                    mShutterButton.performClick();
                     return true;
                 }
                 break;
@@ -469,7 +534,27 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         return super.onKeyDown(keyCode, event);
     }
 
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        switch(keyCode) {
+        case KeyEvent.KEYCODE_CAMERA:
+            mShutterButton.setPressed(false);
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
     public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+        if (mPausing) {
+            // We're pausing, the screen is off and we already stopped
+            // video recording. We don't want to start the camera again
+            // in this case in order to conserve power.
+            // The fact that surfaceChanged is called _after_ an onPause appears
+            // to be legitimate since in that case the lockscreen always returns
+            // to portrait orientation possibly triggering the notification.
+            return;
+        }
+
         stopVideoRecording();
         initializeVideo();
     }
@@ -483,13 +568,7 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
     }
 
     void gotoGallery() {
-        Uri target = Video.Media.INTERNAL_CONTENT_URI;
-        Intent intent = new Intent(Intent.ACTION_VIEW, target);
-        try {
-            startActivity(intent);
-        } catch (ActivityNotFoundException e) {
-            Log.e(TAG, "Could not start gallery activity", e);
-        }
+        MenuHelper.gotoCameraVideoGallery(this);
     }
 
     @Override
@@ -509,36 +588,43 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
-        addBaseMenuItems(menu);
-        MenuHelper.addImageMenuItems(
-                menu,
-                MenuHelper.INCLUDE_ALL & ~MenuHelper.INCLUDE_ROTATE_MENU,
-                false,
-                VideoCamera.this,
-                mHandler,
 
-                // Handler for deletion
-                new Runnable() {
-                    public void run() {
-                        // What do we do here?
-                        // mContentResolver.delete(uri, null, null);
-                    }
-                },
-                new MenuHelper.MenuInvoker() {
-                    public void run(final MenuHelper.MenuCallback cb) {
-                    }
-                });
+        if (mIsVideoCaptureIntent) {
+            // No options menu for attach mode.
+            return false;
+        } else {
+            addBaseMenuItems(menu);
+            int menuFlags = MenuHelper.INCLUDE_ALL & ~MenuHelper.INCLUDE_ROTATE_MENU
+                    & ~MenuHelper.INCLUDE_DETAILS_MENU;
+            MenuHelper.addImageMenuItems(
+                    menu,
+                    menuFlags,
+                    false,
+                    VideoCamera.this,
+                    mHandler,
 
-        MenuItem gallery = menu.add(MenuHelper.IMAGE_SAVING_ITEM, MENU_SAVE_GALLERY_PHOTO, 0,
-                R.string.camera_gallery_photos_text).setOnMenuItemClickListener(
-                        new MenuItem.OnMenuItemClickListener() {
-            public boolean onMenuItemClick(MenuItem item) {
-                gotoGallery();
-                return true;
-            }
-        });
-        gallery.setIcon(android.R.drawable.ic_menu_gallery);
+                    // Handler for deletion
+                    new Runnable() {
+                        public void run() {
+                            // What do we do here?
+                            // mContentResolver.delete(uri, null, null);
+                        }
+                    },
+                    new MenuHelper.MenuInvoker() {
+                        public void run(final MenuHelper.MenuCallback cb) {
+                        }
+                    });
 
+            MenuItem gallery = menu.add(MenuHelper.IMAGE_SAVING_ITEM, MENU_SAVE_GALLERY_PHOTO, 0,
+                    R.string.camera_gallery_photos_text).setOnMenuItemClickListener(
+                            new MenuItem.OnMenuItemClickListener() {
+                public boolean onMenuItemClick(MenuItem item) {
+                    gotoGallery();
+                    return true;
+                }
+            });
+            gallery.setIcon(android.R.drawable.ic_menu_gallery);
+        }
         return true;
     }
 
@@ -552,53 +638,7 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         int resultCode;
         if (success) {
             resultCode = RESULT_OK;
-            Uri saveUri = null;
-
-            Bundle myExtras = getIntent().getExtras();
-            if (myExtras != null) {
-                saveUri = (Uri) myExtras.getParcelable(MediaStore.EXTRA_OUTPUT);
-            }
-
-            if (saveUri != null) {
-                // TODO: Record the video directly into the content provider stream when
-                // bug 1582062 is fixed. Until then we copy the video data from the
-                // original location to the requested location and then delete the original.
-                OutputStream outputStream = null;
-                InputStream inputStream = null;
-
-                try {
-                    inputStream = mContentResolver.openInputStream(mCurrentVideoUri);
-                    outputStream = mContentResolver.openOutputStream(saveUri);
-                    byte[] buffer = new byte[64*1024];
-                    while(true) {
-                        int bytesRead = inputStream.read(buffer);
-                        if (bytesRead < 0) {
-                            break;
-                        }
-                        outputStream.write(buffer, 0, bytesRead);
-                    }
-                } catch (IOException ex) {
-                    Log.e(TAG, "Could not copy video file to Uri", ex);
-                } finally {
-                    if (inputStream != null) {
-                        try {
-                            inputStream.close();
-                        } catch (IOException ex) {
-                            Log.e(TAG, "Could not close video file", ex);
-                        }
-                    }
-                    if (outputStream != null) {
-                        try {
-                            outputStream.close();
-                        } catch (IOException ex) {
-                            Log.e(TAG, "Could not close output uri", ex);
-                        }
-                    }
-                    deleteCurrentVideo();
-                }
-            } else {
-                resultIntent.setData(mCurrentVideoUri);
-            }
+            resultIntent.setData(mCurrentVideoUri);
         } else {
             resultCode = RESULT_CANCELED;
         }
@@ -627,17 +667,49 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         }
     }
 
-    private void initializeVideo() {
+    private void cleanupEmptyFile() {
+        if (mCameraVideoFilename != null) {
+            File f = new File(mCameraVideoFilename);
+            if (f.length() == 0 && f.delete()) {
+              Log.v(TAG, "Empty video file deleted: " + mCameraVideoFilename);
+              mCameraVideoFilename = null;
+            }
+        }
+    }
+
+    // initializeVideo() starts preview and prepare media recorder.
+    // Returns false if initializeVideo fails
+    private boolean initializeVideo() {
         Log.v(TAG, "initializeVideo");
+
+        // We will call initializeVideo() again when the alert is hidden.
+        if (isAlertVisible()) return false;
+
+        Intent intent = getIntent();
+        Bundle myExtras = intent.getExtras();
+
+        if (mIsVideoCaptureIntent && myExtras != null) {
+            Uri saveUri = (Uri) myExtras.getParcelable(MediaStore.EXTRA_OUTPUT);
+            if (saveUri != null) {
+                try {
+                    mCameraVideoFileDescriptor = mContentResolver.
+                        openFileDescriptor(saveUri, "rw").getFileDescriptor();
+                    mCurrentVideoUri = saveUri;
+                }
+                catch (java.io.FileNotFoundException ex) {
+                    // invalid uri
+                    Log.e(TAG, ex.toString());
+                }
+            }
+        }
         releaseMediaRecorder();
 
         if (mSurfaceHolder == null) {
             Log.v(TAG, "SurfaceHolder is null");
-            return;
+            return false;
         }
 
         mMediaRecorder = new MediaRecorder();
-        mNeedToRegisterRecording = false;
 
         if (DEBUG_SUPPRESS_AUDIO_RECORDING) {
             Log.v(TAG, "DEBUG_SUPPRESS_AUDIO_RECORDING is true.");
@@ -645,18 +717,32 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
             mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         }
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-        createVideoPath();
-        mMediaRecorder.setOutputFile(mCameraVideoFilename);
+
+        int OutputFormat = getIntPreference(CameraSettings.KEY_OUTPUT_FORMAT,
+        CameraSettings.DEFAULT_OUTPUT_FORMAT_VALUE);
+        Log.v(TAG, "OutputFormat = "+OutputFormat);
+        mMediaRecorder.setOutputFormat(OutputFormat);
+
+        mMediaRecorder.setMaxDuration(MAX_RECORDING_DURATION_MS);
+
+        if (mStorageStatus != STORAGE_STATUS_OK) {
+            mMediaRecorder.setOutputFile("/dev/null");
+        } else {
+            // We try Uri in intent first. If it doesn't work, use our own instead.
+            if (mCameraVideoFileDescriptor != null) {
+                mMediaRecorder.setOutputFile(mCameraVideoFileDescriptor);
+            } else {
+                createVideoPath(OutputFormat);
+                mMediaRecorder.setOutputFile(mCameraVideoFilename);
+            }
+        }
+
         boolean videoQualityHigh = getBooleanPreference(CameraSettings.KEY_VIDEO_QUALITY,
                 CameraSettings.DEFAULT_VIDEO_QUALITY_VALUE);
 
-        {
-            Intent intent = getIntent();
-            if (intent.hasExtra(MediaStore.EXTRA_VIDEO_QUALITY)) {
-                int extraVideoQuality = intent.getIntExtra(MediaStore.EXTRA_VIDEO_QUALITY, 0);
-                videoQualityHigh = (extraVideoQuality > 0);
-            }
+        if (intent.hasExtra(MediaStore.EXTRA_VIDEO_QUALITY)) {
+            int extraVideoQuality = intent.getIntExtra(MediaStore.EXTRA_VIDEO_QUALITY, 0);
+            videoQualityHigh = (extraVideoQuality > 0);
         }
 
         // Use the same frame rate for both, since internally
@@ -669,43 +755,61 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         } else {
             mMediaRecorder.setVideoSize(176,144);
         }
-        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H263);
+
+        int VideoEncoder = getIntPreference(CameraSettings.KEY_VIDEO_ENCODER,
+            CameraSettings.DEFAULT_VIDEO_ENCODER_VALUE);
+        Log.v(TAG, "VideoEncoder = "+VideoEncoder);
+        mMediaRecorder.setVideoEncoder(VideoEncoder);
+
+
         if (!DEBUG_SUPPRESS_AUDIO_RECORDING) {
-            mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+            int AudioEncoder = getIntPreference(CameraSettings.KEY_AUDIO_ENCODER,
+            CameraSettings.DEFAULT_AUDIO_ENCODER_VALUE);
+            Log.v(TAG, "AudioEncoder = "+AudioEncoder);
+            mMediaRecorder.setAudioEncoder(AudioEncoder);
         }
         mMediaRecorder.setPreviewDisplay(mSurfaceHolder.getSurface());
+
+        long remaining = getAvailableStorage();
+        // remaining >= LOW_STORAGE_THRESHOLD at this point, reserve a quarter
+        // of that to make it more likely that recording can complete successfully.
+        try {
+            mMediaRecorder.setMaxFileSize(remaining - LOW_STORAGE_THRESHOLD / 4);
+        } catch (RuntimeException exception) {
+            // We are going to ignore failure of setMaxFileSize here, as
+            // a) The composer selected may simply not support it, or
+            // b) The underlying media framework may not handle 64-bit range
+            //    on the size restriction.
+        }
+
         try {
             mMediaRecorder.prepare();
         } catch (IOException exception) {
             Log.e(TAG, "prepare failed for " + mCameraVideoFilename);
             releaseMediaRecorder();
             // TODO: add more exception handling logic here
-            return;
+            return false;
         }
         mMediaRecorderRecording = false;
+
+        if (!mIsVideoCaptureIntent && !mThumbController.isUriValid()) {
+            updateLastVideo();
+        }
+
+        if (!mIsVideoCaptureIntent) {
+            mThumbController.updateDisplayIfNeeded();
+        }
+
+        return true;
     }
 
     private void releaseMediaRecorder() {
         Log.v(TAG, "Releasing media recorder.");
         if (mMediaRecorder != null) {
+            cleanupEmptyFile();
             mMediaRecorder.reset();
             mMediaRecorder.release();
             mMediaRecorder = null;
-        }
-    }
-
-    private void restartPreview() {
-        if (DEBUG_DO_NOT_REUSE_MEDIA_RECORDER) {
-            Log.v(TAG, "DEBUG_DO_NOT_REUSE_MEDIA_RECORDER recreating mMediaRecorder.");
-            initializeVideo();
-        } else {
-            try {
-                mMediaRecorder.prepare();
-            } catch (IOException exception) {
-                Log.e(TAG, "prepare failed for " + mCameraVideoFilename);
-                releaseMediaRecorder();
-                // TODO: add more exception handling logic here
-            }
         }
     }
 
@@ -724,31 +828,47 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         return getIntPreference(key, defaultValue ? 1 : 0) != 0;
     }
 
-    private void createVideoPath() {
+    private void createVideoPath(int format) {
         long dateTaken = System.currentTimeMillis();
         String title = createName(dateTaken);
-        String displayName = title + ".3gp"; // Used when emailing.
+        String fileSurfix = ".3gp";  // Used when emailing.
+        String fileMimetype = "video/3gpp";
+        if(format == 1){        // MediaRecorder.OutputFormat.THREE_GPP
+           fileSurfix = ".3gp";
+           fileMimetype = "video/3gpp";
+        }
+        else if(format == 2){   // MediaRecorder.OutputFormat.MPEG_4
+           fileSurfix = ".mp4";
+           fileMimetype = "video/mp4";
+        }
+        else if(format == 3){   // MediaRecorder.OutputFormat.RAW_AMR
+           fileSurfix = ".amr";
+           fileMimetype = "audio/amr";
+        }
+        String displayName = title + fileSurfix;
         String cameraDirPath = ImageManager.CAMERA_IMAGE_BUCKET_NAME;
         File cameraDir = new File(cameraDirPath);
         cameraDir.mkdirs();
-        String filename = cameraDirPath + "/" + Long.toString(dateTaken) + ".3gp";
+        String filename = cameraDirPath + "/" + Long.toString(dateTaken) + fileSurfix;
         ContentValues values = new ContentValues(7);
         values.put(Video.Media.TITLE, title);
         values.put(Video.Media.DISPLAY_NAME, displayName);
         values.put(Video.Media.DESCRIPTION, "");
         values.put(Video.Media.DATE_TAKEN, dateTaken);
-        values.put(Video.Media.MIME_TYPE, "video/3gpp");
+        values.put(Video.Media.MIME_TYPE, fileMimetype);
         values.put(Video.Media.DATA, filename);
         mCameraVideoFilename = filename;
-        Log.v(TAG, "Current camera video filename: " + mCameraVideoFilename);
+        Log.v(TAG, "Current camera video filename: " + mCameraVideoFilename + " Mime:" + fileMimetype);
         mCurrentVideoValues = values;
     }
 
     private void registerVideo() {
-        Uri videoTable = Uri.parse("content://media/external/video/media");
-        mCurrentVideoUri = mContentResolver.insert(videoTable,
-                mCurrentVideoValues);
-        Log.v(TAG, "Current video URI: " + mCurrentVideoUri);
+        if (mCameraVideoFileDescriptor == null) {
+            Uri videoTable = Uri.parse("content://media/external/video/media");
+            mCurrentVideoUri = mContentResolver.insert(videoTable,
+                    mCurrentVideoValues);
+            Log.v(TAG, "Current video URI: " + mCurrentVideoUri);
+        }
         mCurrentVideoValues = null;
     }
 
@@ -761,6 +881,7 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
             mContentResolver.delete(mCurrentVideoUri, null, null);
             mCurrentVideoUri = null;
         }
+        updateAndShowStorageHint(true);
     }
 
     private void deleteVideoFile(String fileName) {
@@ -805,16 +926,58 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         item.setIcon(android.R.drawable.ic_menu_preferences);
     }
 
+    // from MediaRecorder.OnErrorListener
+    public void onError(MediaRecorder mr, int what, int extra) {
+        if (what == MediaRecorder.MEDIA_RECORDER_ERROR_UNKNOWN) {
+            // We may have run out of space on the sdcard.
+            stopVideoRecording();
+            updateAndShowStorageHint(true);
+        }
+    }
+
+    // from MediaRecorder.OnInfoListener
+    public void onInfo(MediaRecorder mr, int what, int extra) {
+        if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+            mShutterButton.performClick();
+        } else if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED) {
+            mShutterButton.performClick();
+            updateAndShowStorageHint(true);
+        }
+    }
+
+    /*
+     * Make sure we're not recording music playing in the background, ask
+     * the MediaPlaybackService to pause playback.
+     */
+    private void pauseAudioPlayback() {
+        // Shamelessly copied from MediaPlaybackService.java, which
+        // should be public, but isn't.
+        Intent i = new Intent("com.android.music.musicservicecommand");
+        i.putExtra("command", "pause");
+
+        sendBroadcast(i);
+    }
+
     private void startVideoRecording() {
         Log.v(TAG, "startVideoRecording");
         if (!mMediaRecorderRecording) {
 
-            // Check mMediaRecorder to see whether it is initialized or not.
-            if (mMediaRecorder == null) {
-                initializeVideo();
+            if (mStorageStatus != STORAGE_STATUS_OK) {
+                Log.v(TAG, "Storage issue, ignore the start request");
+                return;
             }
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+            // Check mMediaRecorder to see whether it is initialized or not.
+            if (mMediaRecorder == null && initializeVideo() == false ) {
+                Log.e(TAG, "Initialize video (MediaRecorder) failed.");
+                return;
+            }
+
+            pauseAudioPlayback();
+
             try {
+                mMediaRecorder.setOnErrorListener(this);
+                mMediaRecorder.setOnInfoListener(this);
                 mMediaRecorder.start();   // Recording is now started
             } catch (RuntimeException e) {
                 Log.e(TAG, "Could not start media recorder. ", e);
@@ -826,6 +989,8 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
             mRecordingTimeView.setText("");
             mRecordingTimeView.setVisibility(View.VISIBLE);
             mHandler.sendEmptyMessage(UPDATE_RECORD_TIME);
+            setScreenTimeoutInfinite();
+            hideLastPictureButton();
         }
     }
 
@@ -833,100 +998,217 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         int drawableId = showRecording ? R.drawable.ic_camera_bar_indicator_record
             : R.drawable.ic_camera_indicator_video;
         Drawable drawable = getResources().getDrawable(drawableId);
-        mModeIndicatorView.setImageDrawable(drawable);
+        mShutterButton.setImageDrawable(drawable);
     }
 
-    private void stopVideoRecordingAndDisplayDialog() {
-        Log.v(TAG, "stopVideoRecordingAndDisplayDialog");
-        if (mMediaRecorderRecording) {
-            stopVideoRecording();
-            acquireAndShowVideoFrame();
-            showPostRecordingAlert();
+    private void stopVideoRecordingAndGetThumbnail() {
+        stopVideoRecording();
+        acquireVideoThumb();
+    }
+
+    private void stopVideoRecordingAndShowAlert() {
+        stopVideoRecording();
+        showAlert();
+    }
+
+    private void showAlert() {
+        int[] pickIds = {R.id.attach, R.id.cancel};
+        int[] normalIds = {R.id.gallery, R.id.share, R.id.discard};
+        int[] alwaysOnIds = {R.id.play};
+        int[] hideIds = pickIds;
+        int[] connectIds = normalIds;
+        if (mIsVideoCaptureIntent) {
+            hideIds = normalIds;
+            connectIds = pickIds;
+        }
+        for(int id : hideIds) {
+            mPostPictureAlert.findViewById(id).setVisibility(View.GONE);
+        }
+        ActionMenuButton shareButton =
+                (ActionMenuButton) mPostPictureAlert.findViewById(R.id.share);
+        shareButton.setRestricted(
+                mCurrentVideoFileLength > SHARE_FILE_LENGTH_LIMIT);
+        connectAndFadeIn(connectIds);
+        connectAndFadeIn(alwaysOnIds);
+        hideLastPictureButton();
+        mPostPictureAlert.setVisibility(View.VISIBLE);
+
+        // There are two cases we are here:
+        // (1) We are in a capture video intent, and we are reviewing the video
+        //     we just taken.
+        // (2) The thumbnail button is clicked: we review the video associated
+        //     with the thumbnail.
+        // For the second case, we copy the associated URI and filename to
+        // mCurrentVideoUri and mCurrentVideoFilename, so the video frame shown
+        // and the target for actions (play, delete, ...) will be correct.
+
+        if (!mIsVideoCaptureIntent) {
+            mCurrentVideoUri = mThumbController.getUri();
+            mCurrentVideoFilename = getDataPath(mCurrentVideoUri);
+        }
+
+        String path = mCurrentVideoFilename;
+        if (path != null) {
+            Bitmap videoFrame = ImageManager.createVideoThumbnail(path);
+            mVideoFrame.setImageBitmap(videoFrame);
+            mVideoFrame.setVisibility(View.VISIBLE);
         }
     }
 
-    private void showPostRecordingAlert() {
-        boolean isPick = isVideoCaptureIntent();
-        int pickVisible = isPick ? View.VISIBLE : View.GONE;
-        int normalVisible = ! isPick ? View.VISIBLE : View.GONE;
-        mPostPictureAlert.findViewById(R.id.share).setVisibility(normalVisible);
-        mPostPictureAlert.findViewById(R.id.discard).setVisibility(normalVisible);
-        mPostPictureAlert.findViewById(R.id.attach).setVisibility(pickVisible);
-        mPostPictureAlert.findViewById(R.id.cancel).setVisibility(pickVisible);
-        mPostPictureAlert.setVisibility(View.VISIBLE);
-    }
-
-    private void hidePostPictureAlert() {
+    private void hideAlert() {
+        mVideoFrame.setVisibility(View.INVISIBLE);
         mPostPictureAlert.setVisibility(View.INVISIBLE);
+        showLastPictureButton();
     }
 
-    private boolean isPostRecordingAlertVisible() {
+    private void connectAndFadeIn(int[] connectIds) {
+        for(int id : connectIds) {
+            View view = mPostPictureAlert.findViewById(id);
+            view.setOnClickListener(this);
+            Animation animation = new AlphaAnimation(0F, 1F);
+            animation.setDuration(500);
+            view.startAnimation(animation);
+        }
+    }
+
+    private boolean isAlertVisible() {
         return mPostPictureAlert.getVisibility() == View.VISIBLE;
     }
 
     private void stopVideoRecording() {
         Log.v(TAG, "stopVideoRecording");
+        boolean needToRegisterRecording = false;
         if (mMediaRecorderRecording || mMediaRecorder != null) {
-            if (mMediaRecorderRecording) {
-                mMediaRecorder.stop();
+            if (mMediaRecorderRecording && mMediaRecorder != null) {
+                try {
+                    mMediaRecorder.setOnErrorListener(null);
+                    mMediaRecorder.setOnInfoListener(null);
+                    mMediaRecorder.stop();
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "stop fail: " + e.getMessage());
+                }
+
                 mCurrentVideoFilename = mCameraVideoFilename;
+                try {
+                    mCurrentVideoFileLength = new File(mCurrentVideoFilename).length();
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "get file length fail: " + e.getMessage());
+                    mCurrentVideoFileLength = 0;
+                }
                 Log.v(TAG, "Setting current video filename: " + mCurrentVideoFilename);
-                mCameraVideoFilename = null;
-                mNeedToRegisterRecording = true;
+                needToRegisterRecording = true;
                 mMediaRecorderRecording = false;
             }
             releaseMediaRecorder();
             updateRecordingIndicator(false);
             mRecordingTimeView.setVisibility(View.GONE);
-            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            setScreenTimeoutLong();
         }
-        if (mNeedToRegisterRecording) {
+        if (needToRegisterRecording && mStorageStatus == STORAGE_STATUS_OK) {
             registerVideo();
-            mNeedToRegisterRecording = false;
         }
-        if (mCameraVideoFilename != null){
-            deleteVideoFile(mCameraVideoFilename);
-        }
+
+        mCameraVideoFilename = null;
+        mCameraVideoFileDescriptor = null;
     }
 
-    private void hideVideoFrameAndStartPreview() {
-        hidePostPictureAlert();
-        hideVideoFrame();
-        restartPreview();
+    private void setScreenTimeoutSystemDefault() {
+        mHandler.removeMessages(CLEAR_SCREEN_DELAY);
+        clearScreenOnFlag();
     }
 
-    private void acquireAndShowVideoFrame() {
-        recycleVideoFrameBitmap();
-        mVideoFrameBitmap = createVideoThumbnail(mCurrentVideoFilename);
-        mVideoFrame.setImageBitmap(mVideoFrameBitmap);
-        mVideoFrame.setVisibility(View.VISIBLE);
+    private void setScreenTimeoutLong() {
+        mHandler.removeMessages(CLEAR_SCREEN_DELAY);
+        setScreenOnFlag();
+        mHandler.sendEmptyMessageDelayed(CLEAR_SCREEN_DELAY, SCREEN_DELAY);
     }
 
-    private void hideVideoFrame() {
-        recycleVideoFrameBitmap();
-        mVideoFrame.setVisibility(View.GONE);
+    private void setScreenTimeoutInfinite() {
+        mHandler.removeMessages(CLEAR_SCREEN_DELAY);
+        setScreenOnFlag();
     }
 
-    private void recycleVideoFrameBitmap() {
-        if (mVideoFrameBitmap != null) {
-            mVideoFrame.setImageDrawable(null);
-            mVideoFrameBitmap.recycle();
-            mVideoFrameBitmap = null;
+    private void clearScreenOnFlag() {
+        Window w = getWindow();
+        final int keepScreenOnFlag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
+        if ((w.getAttributes().flags & keepScreenOnFlag) != 0) {
+            w.clearFlags(keepScreenOnFlag);
         }
     }
 
-    private Bitmap createVideoThumbnail(String filePath) {
-        Bitmap bitmap = null;
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+    private void setScreenOnFlag() {
+        Window w = getWindow();
+        final int keepScreenOnFlag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
+        if ((w.getAttributes().flags & keepScreenOnFlag) == 0) {
+            w.addFlags(keepScreenOnFlag);
+        }
+    }
+
+    private void hideAlertAndStartPreview() {
+        hideAlert();
+        initializeVideo();
+    }
+
+    private void hideAlertAndStartVideoRecording() {
+        hideAlert();
+        startVideoRecording();
+    }
+
+    private void acquireVideoThumb() {
+        Bitmap videoFrame = ImageManager.createVideoThumbnail(mCurrentVideoFilename);
+        mThumbController.setData(mCurrentVideoUri, videoFrame);
+    }
+
+    private void showLastPictureButton() {
+        if (!mIsVideoCaptureIntent) {
+            mLastPictureButton.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void hideLastPictureButton() {
+        if (!mIsVideoCaptureIntent) {
+            mLastPictureButton.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    private static ImageManager.DataLocation dataLocation() {
+        return ImageManager.DataLocation.EXTERNAL;
+    }
+
+    private void updateLastVideo() {
+        ImageManager.IImageList list = ImageManager.instance().allImages(
+            this,
+            mContentResolver,
+            dataLocation(),
+            ImageManager.INCLUDE_VIDEOS,
+            ImageManager.SORT_ASCENDING,
+            ImageManager.CAMERA_IMAGE_BUCKET_ID);
+        int count = list.getCount();
+        if (count > 0) {
+            ImageManager.IImage image = list.getImageAt(count-1);
+            Uri uri = image.fullSizeImageUri();
+            mThumbController.setData(uri, image.miniThumbBitmap());
+        } else {
+            mThumbController.setData(null, null);
+        }
+        list.deactivate();
+    }
+
+    private static final String[] DATA_PATH_PROJECTION = new String[] {
+        "_data"
+    };
+
+    private String getDataPath(Uri uri) {
+        Cursor c = null;
         try {
-            retriever.setMode(MediaMetadataRetriever.MODE_CAPTURE_FRAME_ONLY);
-            retriever.setDataSource(filePath);
-            bitmap = retriever.captureFrame();
+            c = mContentResolver.query(uri, DATA_PATH_PROJECTION, null, null, null);
+            if (c != null && c.moveToFirst()) {
+                return c.getString(0);
+            } else {
+                return null;
+            }
         } finally {
-            retriever.release();
+            if (c != null) c.close();
         }
-        return bitmap;
     }
-
 }
-

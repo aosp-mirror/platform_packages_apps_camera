@@ -26,6 +26,9 @@
     <!-- label for the icon meaning 'show me all the images that were taken with the camera' -->
     <string name="camera_label">Camera</string>
 
+    <!-- label for the 'video recording application shown in the top level 'all applications' -->
+    <string name="video_camera_label">Camcorder</string>
+
     <!-- label for the 'pictures application shown in the top level 'all applications' -->
     <string name="gallery_picker_label">Gallery</string>
 
@@ -61,6 +64,9 @@
 
     <!-- alert to the user to that the SD card is too full to complete the operation -->
     <string name="not_enough_space">Your SD card is full.</string>
+
+    <!-- alert to the user to that the SD card is being disk-checked -->
+    <string name="preparing_sd">Preparing SD card\u2026</string>
 
     <!-- Toast/alert after saving wallpaper -->
     <string name="wallpaper">Setting wallpaper, please wait\u2026</string>
@@ -148,7 +154,7 @@
     <!-- Toast after trying to share a video indicating that there are no applications which are capable of so doing. -->
     <string name="no_way_to_share_video">This video cannot be shared.</string>
 
-    <!-- Do not translate -->
+    <!-- Menu item for playing the video. -->
     <string name="video_play">Play</string>
 
     <!-- Button indicating to go to the image gallery -->
@@ -158,18 +164,6 @@
     <string name="camera_pick_wallpaper">Pictures</string>
     <string name="camera_setas_wallpaper">Wallpaper</string>
 
-    <string name="camera_setas_wallpaper_drm">Purchased pictures</string>
-    
-    <string name="camera_selectphoto">Select this picture</string>
-
-    <!-- Button indicating to skip the picture just taken and take another one (this is used
-         when the camera is invoked for the purpose of returning a picture to another activity
-         such as a contacts photo). -->
-    <string name="camera_takenewphoto">Capture new picture</string>
-
-    <!-- Do not translate -->
-    <string name="camera_takenewvideo">Capture new video</string>
-
     <!-- Settings screen, section heading  -->
     <string name="pref_gallery_category">General settings</string>
 
@@ -178,10 +172,10 @@
     <string name="pref_camera_general_settings_category">General settings</string>
 
     <!-- Settings screen, setting summary text -->
-    <string name="pref_gallery_size_title">Picture size</string>
+    <string name="pref_gallery_size_title">Display size</string>
 
     <!-- Settings screen, title for preference for image size to be used in the im -->
-    <string name="pref_gallery_size_summary">Select the display size of pictures</string>
+    <string name="pref_gallery_size_summary">Select the display size of pictures and videos</string>
     <!-- Title of dialog that appears after selecting Picture size setting option -->
     <string name="pref_gallery_size_dialogtitle">Picture size</string>
     <!-- Options in dialog that appears after selecting Picture size setting option -->
@@ -201,9 +195,9 @@
     <!-- Do not translate. Default option value in dialog that appears after selecting Picture size setting option -->
     <string name="default_value_pref_gallery_size">1</string>
     <!-- Settings screen, setting option name -->
-    <string name="pref_gallery_sort_title">Picture sort</string>
+    <string name="pref_gallery_sort_title">Sort order</string>
     <!-- Settings screen, setting summary text -->
-    <string name="pref_gallery_sort_summary">Select the sort order of pictures</string>
+    <string name="pref_gallery_sort_summary">Select the sort order of pictures and videos</string>
     <!-- Title of dialog that appears after selecting Picture sort setting option -->
     <string name="pref_gallery_sort_dialogtitle">Picture sort</string>
     <!-- Options in dialog that appears after selecting Picture sort setting option -->
@@ -308,12 +302,6 @@
     <!-- Do not translate -->
     <string name="pref_camera_upload_albumname_dialogtitle">Picasa album name</string>
 
-    <!-- [No longer used.] Settings screen, setting title text -->
-    <string name="pref_camera_postpicturemenu_title">Prompt after capture</string>
-
-    <!-- [No longer used.] Settings screen, setting summary text -->
-    <string name="pref_camera_postpicturemenu_summary">Display action menu (save, delete, \u2026) after capture</string>
-
     <!-- Settings screen, Video quality category title -->
     <string name="pref_camera_videoquality_category">Video quality</string>
     
@@ -329,6 +317,56 @@
     
     <!-- Settings screen, Video codec dialog title -->
     <string name="pref_camera_videoquality_dialogtitle">Video quality</string>
+
+    <!-- Settings screen, Audio Encoder category title -->
+    <string name="pref_camera_audioencoder_category">Audio Encoder</string>
+
+    <!-- Default Audio Encoder setting. A numerical value. Do not translate. -->
+    <string name="pref_camera_audioencoder_default">1</string>
+
+    <!-- Settings screen, Select Audio Encoder title -->
+    <string name="pref_camera_audioencoder_title">Select Audio Encoder</string>
+
+    <!-- Settings screen, Audio Encoder dialog radio button choices -->
+    <string name="pref_camera_audioencoder_entry_1">AMR-NB</string>
+    <string name="pref_camera_audioencoder_entry_2">AAC</string>
+
+    <!-- Settings screen, Audio Encoder dialog title -->
+    <string name="pref_camera_audioencoder_dialogtitle">Audio Encoder</string>
+
+    <!-- Settings screen, Video Encoder category title -->
+    <string name="pref_camera_videoencoder_category">Video Encoder</string>
+
+    <!-- Default Video Encoder setting. A numerical value. Do not translate. -->
+    <string name="pref_camera_videoencoder_default">1</string>
+
+    <!-- Settings screen, Select Video Encoder title -->
+    <string name="pref_camera_videoencoder_title">Select Video Encoder</string>
+
+    <!-- Settings screen, Video Encoder dialog radio button choices -->
+    <string name="pref_camera_videoencoder_entry_1">H263</string>
+    <string name="pref_camera_videoencoder_entry_2">H264</string>
+    <string name="pref_camera_videoencoder_entry_3">MPEG4</string>
+
+    <!-- Settings screen, Video Encoder dialog title -->
+    <string name="pref_camera_videoencoder_dialogtitle">Video Encoder</string>
+
+    <!-- Settings screen, Output Format category title -->
+    <string name="pref_camera_outputformat_category">Output Format</string>
+
+    <!-- Default Output Format setting. A numerical value. Do not translate. -->
+    <string name="pref_camera_outputformat_default">1</string>
+
+    <!-- Settings screen, Select Output Format title -->
+    <string name="pref_camera_outputformat_title">Select Output Format</string>
+
+    <!-- Settings screen, Output Format dialog radio button choices -->
+    <string name="pref_camera_outputformat_entry_1">3GP</string>
+    <string name="pref_camera_outputformat_entry_2">MP4</string>
+    <string name="pref_camera_outputformat_entry_3">RAW AMR</string>
+
+    <!-- Settings screen, Output Format dialog title -->
+    <string name="pref_camera_outputformat_dialogtitle">Output Format</string>
     
     <!-- Menu item to go to the settings screen -->
     <string name="camerasettings">Settings</string>
@@ -341,7 +379,7 @@
     <string name="pref_gallery_confirm_delete_title">Confirm deletions</string>
 
     <!-- Preference summary for whether the user should be prompted form confirmation when deleting images  -->
-    <string name="pref_gallery_confirm_delete_summary">Show confirmation before deleting pictures</string>
+    <string name="pref_gallery_confirm_delete_summary">Show confirmation before deleting a picture or video</string>
 
    <!-- Details stuff -->
     <!-- Do not translate -->
@@ -407,10 +445,6 @@
     <string name="video_context_menu_header">Video options</string>
     <!-- Hint that appears when cropping an image with more than one face -->
     <string name="multiface_crop_help">Tap a face to begin.</string>
-    <!-- Hint/toast that appears when user first opens capture screen on still picture camera -->
-    <string name="camera_button_hint">Press Capture button to take picture.</string>
-    <!-- Hint/toast that appears when user first opens capture screen on video camera -->
-    <string name="video_camera_button_hint">Press Capture button to record video.</string>
     
     <!-- Activity title when in the image gallery to see pictures -->   
     <string name="photos_gallery_title">Gallery</string>
@@ -444,16 +478,6 @@
     <!-- shown in the video player view while the video is being loaded, before it starts playing -->
     <string name="loading_video">Loading video\u2026</string>
  
-    <!-- Displayed as a toast when a picture is saved -->
-    <string name="picture_saved">Picture saved to SD card.</string>
-    <!-- Displayed as a toast when a picture is deleted -->
-    <string name="picture_deleted">Picture deleted.</string>
-        
-    <!-- Displayed as a toast when a video is saved -->
-    <string name="video_saved">Video saved to SD card.</string>
-    <!-- Displayed as a toast when a video is deleted -->
-    <string name="video_deleted">Video deleted.</string>
-
     <!-- Low-memory dialog title -->
     <string name="spaceIsLow_title">Space is low</string>
     <!-- Low-memory dialog message -->
@@ -470,5 +494,22 @@
     
     <!-- Movie View Start Playing button "Beginning" -->
     <string name="resume_playing_restart">Start over</string>
+    
+    <!-- Title for picture frame gadget to show in list of all available gadgets -->
+    <string name="gadget_title">Picture frame</string>
+    
+    <!-- Video Camera format string for new video files. Passed to java.text.SimpleDateFormat.
+         Do not localize -->
+    <string name="video_file_name_format" translatable="false">"'video'-yyyy-MM-dd-HH-mm-ss"</string>
+
+    <!-- Title for the file information dialog -->
+    <string name="file_info_title">File info:</string>
+    
+    <!-- The video is execeed the size limit of a MMS, and suggest user to record a shorter length clip -->
+    <string name="video_exceed_mms_limit">The video you recorded is too large to send via MMS. Try recording a shorter length clip.</string>
+
+    <!-- Displayed as a toast when a video file is too large to attach
+         to a Gmail message. -->
+    <string name="too_large_to_attach">File too large to attach.</string>
     
 </resources>
