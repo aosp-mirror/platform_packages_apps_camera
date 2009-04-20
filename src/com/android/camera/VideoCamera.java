@@ -840,7 +840,7 @@ public class VideoCamera extends Activity implements View.OnClickListener, Surfa
         Log.v(TAG, "stopVideoRecordingAndDisplayDialog");
         if (mMediaRecorderRecording) {
             stopVideoRecording();
-            //acquireAndShowVideoFrame();
+            acquireAndShowVideoFrame();
             showPostRecordingAlert();
         }
     }
