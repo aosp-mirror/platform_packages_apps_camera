@@ -39,4 +39,34 @@
                 android:entryValues="@array/pref_camera_videoquality_entryvalues"
                 android:dialogTitle="@string/pref_camera_videoquality_dialogtitle" />
     </PreferenceCategory>
+    <PreferenceCategory
+      android:title="@string/pref_camera_audioencoder_category">
+        <ListPreference
+                android:key="pref_camera_audioencoder_key"
+                android:defaultValue="@string/pref_camera_audioencoder_default"
+                android:title="@string/pref_camera_audioencoder_title"
+                android:entries="@array/pref_camera_audioencoder_entries"
+                android:entryValues="@array/pref_camera_audioencoder_entryvalues"
+                android:dialogTitle="@string/pref_camera_audioencoder_dialogtitle" />
+    </PreferenceCategory>
+    <PreferenceCategory
+      android:title="@string/pref_camera_videoencoder_category">
+        <ListPreference
+                android:key="pref_camera_videoencoder_key"
+                android:defaultValue="@string/pref_camera_videoencoder_default"
+                android:title="@string/pref_camera_videoencoder_title"
+                android:entries="@array/pref_camera_videoencoder_entries"
+                android:entryValues="@array/pref_camera_videoencoder_entryvalues"
+                android:dialogTitle="@string/pref_camera_videoencoder_dialogtitle" />
+    </PreferenceCategory>
+    <PreferenceCategory
+      android:title="@string/pref_camera_outputformat_category">
+        <ListPreference
+                android:key="pref_camera_outputformat_key"
+                android:defaultValue="@string/pref_camera_outputformat_default"
+                android:title="@string/pref_camera_outputformat_title"
+                android:entries="@array/pref_camera_outputformat_entries"
+                android:entryValues="@array/pref_camera_outputformat_entryvalues"
+                android:dialogTitle="@string/pref_camera_outputformat_dialogtitle" />
+    </PreferenceCategory>
 </PreferenceScreen>
