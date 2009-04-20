@@ -1003,7 +1003,7 @@ public class VideoCamera extends Activity implements View.OnClickListener,
 
     private void stopVideoRecordingAndGetThumbnail() {
         stopVideoRecording();
-        acquireVideoThumb();
+        //acquireVideoThumb();
     }
 
     private void stopVideoRecordingAndShowAlert() {
