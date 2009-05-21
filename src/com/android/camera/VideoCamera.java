@@ -68,7 +68,7 @@ public class VideoCamera extends Activity implements View.OnClickListener,
     private static final String TAG = "videocamera";
 
     private static final boolean DEBUG = true;
-    private static final boolean DEBUG_SUPPRESS_AUDIO_RECORDING = DEBUG && false;
+    private static final boolean DEBUG_SUPPRESS_AUDIO_RECORDING = DEBUG || false;
 
     private static final int CLEAR_SCREEN_DELAY = 4;
     private static final int UPDATE_RECORD_TIME = 5;
