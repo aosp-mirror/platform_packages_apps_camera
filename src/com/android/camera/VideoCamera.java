@@ -717,7 +717,11 @@ public class VideoCamera extends Activity implements View.OnClickListener,
             mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         }
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+
+        int OutputFormat = getIntPreference(CameraSettings.KEY_OUTPUT_FORMAT,
+            CameraSettings.DEFAULT_OUTPUT_FORMAT_VALUE);
+        Log.v(TAG, "OutputFormat = "+OutputFormat);
+        mMediaRecorder.setOutputFormat(OutputFormat);
 
         mMediaRecorder.setMaxDuration(MAX_RECORDING_DURATION_MS);
 
@@ -728,14 +732,15 @@ public class VideoCamera extends Activity implements View.OnClickListener,
             if (mCameraVideoFileDescriptor != null) {
                 mMediaRecorder.setOutputFile(mCameraVideoFileDescriptor);
             } else {
-                createVideoPath();
+                createVideoPath(OutputFormat);
                 mMediaRecorder.setOutputFile(mCameraVideoFilename);
             }
         }
 
-        boolean videoQualityHigh = getBooleanPreference(CameraSettings.KEY_VIDEO_QUALITY,
+        int videoQuality = getIntPreference(CameraSettings.KEY_VIDEO_QUALITY,
                 CameraSettings.DEFAULT_VIDEO_QUALITY_VALUE);
 
+        boolean videoQualityHigh = true;
         if (intent.hasExtra(MediaStore.EXTRA_VIDEO_QUALITY)) {
             int extraVideoQuality = intent.getIntExtra(MediaStore.EXTRA_VIDEO_QUALITY, 0);
             videoQualityHigh = (extraVideoQuality > 0);
@@ -746,14 +751,50 @@ public class VideoCamera extends Activity implements View.OnClickListener,
         // unstable. We need to fix the MediaRecorder to disable the support
         // of setting frame rate for now.
         mMediaRecorder.setVideoFrameRate(20);
-        if (videoQualityHigh) {
-            mMediaRecorder.setVideoSize(352,288);
-        } else {
-            mMediaRecorder.setVideoSize(176,144);
+
+        int videowidth  = 350;
+        int videoheight = 288;
+        if (videoQuality == 0) {
+            videowidth  = 352;
+            videoheight = 288;
+        } else if (videoQuality == 1) {
+            videowidth  = 176;
+            videoheight = 144;
+        } else if (videoQuality == 2) {
+            videowidth  = 720;
+            videoheight = 576;
+        } else if (videoQuality == 3) {
+            videowidth  = 720;
+            videoheight = 480;
+        } else if (videoQuality == 4) {
+            videowidth  = 704;
+            videoheight = 576;
+        } else if (videoQuality == 5) {
+            videowidth  = 704;
+            videoheight = 480;
+        } else if (videoQuality == 6) {
+            videowidth  = 640;
+            videoheight = 480;
+        } else if (videoQuality == 7) {
+            videowidth  = 320;
+            videoheight = 240;
         }
-        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H263);
+
+        Log.v(TAG, "videowidth = "+videowidth + " videoheight = "+videoheight);
+        mMediaRecorder.setVideoSize(videowidth,videoheight);
+
+        {
+            int VideoEncoder = getIntPreference(CameraSettings.KEY_VIDEO_ENCODER,
+            CameraSettings.DEFAULT_VIDEO_ENCODER_VALUE);
+            Log.v(TAG, "VideoEncoder = "+VideoEncoder);
+            mMediaRecorder.setVideoEncoder(VideoEncoder);
+        }
+
         if (!DEBUG_SUPPRESS_AUDIO_RECORDING) {
-            mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+            int AudioEncoder = getIntPreference(CameraSettings.KEY_AUDIO_ENCODER,
+            CameraSettings.DEFAULT_AUDIO_ENCODER_VALUE);
+            Log.v(TAG, "AudioEncoder = "+AudioEncoder);
+            mMediaRecorder.setAudioEncoder(AudioEncoder);
         }
         mMediaRecorder.setPreviewDisplay(mSurfaceHolder.getSurface());
 
@@ -815,10 +856,24 @@ public class VideoCamera extends Activity implements View.OnClickListener,
         return getIntPreference(key, defaultValue ? 1 : 0) != 0;
     }
 
-    private void createVideoPath() {
+    private void createVideoPath(int format) {
         long dateTaken = System.currentTimeMillis();
         String title = createName(dateTaken);
-        String displayName = title + ".3gp"; // Used when emailing.
+        String fileSurfix = ".3gp";  // Used when emailing.
+        String fileMimetype = "video/3gpp";
+        if(format == 1){        // MediaRecorder.OutputFormat.THREE_GPP
+           fileSurfix = ".3gp";
+           fileMimetype = "video/3gpp";
+        }
+        else if(format == 2){   // MediaRecorder.OutputFormat.MPEG_4
+           fileSurfix = ".mp4";
+           fileMimetype = "video/mp4";
+        }
+        else if(format == 3){   // MediaRecorder.OutputFormat.RAW_AMR
+           fileSurfix = ".amr";
+           fileMimetype = "audio/amr";
+        }
+        String displayName = title + fileSurfix;
         String cameraDirPath = ImageManager.CAMERA_IMAGE_BUCKET_NAME;
         File cameraDir = new File(cameraDirPath);
         cameraDir.mkdirs();
@@ -826,18 +881,19 @@ public class VideoCamera extends Activity implements View.OnClickListener,
                 getString(R.string.video_file_name_format));
         Date date = new Date(dateTaken);
         String filepart = dateFormat.format(date);
-        String filename = cameraDirPath + "/" + filepart + ".3gp";
+        String filename = cameraDirPath + "/" + filepart + fileSurfix;
         ContentValues values = new ContentValues(7);
         values.put(Video.Media.TITLE, title);
         values.put(Video.Media.DISPLAY_NAME, displayName);
         values.put(Video.Media.DESCRIPTION, "");
         values.put(Video.Media.DATE_TAKEN, dateTaken);
-        values.put(Video.Media.MIME_TYPE, "video/3gpp");
+        values.put(Video.Media.MIME_TYPE, fileMimetype);
         values.put(Video.Media.DATA, filename);
         mCameraVideoFilename = filename;
-        Log.v(TAG, "Current camera video filename: " + mCameraVideoFilename);
+        Log.v(TAG, "Current camera video filename: " + mCameraVideoFilename + " Mime:" + fileMimetype);
         mCurrentVideoValues = values;
     }
+
 
     private void registerVideo() {
         if (mCameraVideoFileDescriptor == null) {
