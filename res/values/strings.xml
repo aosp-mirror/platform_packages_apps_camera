@@ -312,11 +312,67 @@
     <string name="pref_camera_videoquality_title">Select video quality</string>
     
     <!-- Settings screen, Video quality dialog radio button choices -->
-    <string name="pref_camera_videoquality_entry_0">Low (for MMS messages)</string>
-    <string name="pref_camera_videoquality_entry_1">High (for SD card)</string>
-    
+    <string name="pref_camera_videoquality_entry_0">CIF 352x288</string>
+    <string name="pref_camera_videoquality_entry_1">QIF 176x144</string>
+    <string name="pref_camera_videoquality_entry_2">DVD-Video PAL 720x576</string>
+    <string name="pref_camera_videoquality_entry_3">DVD-Video NTSC 720x480</string>
+    <string name="pref_camera_videoquality_entry_4">TV NTSC 704x480 </string>
+    <string name="pref_camera_videoquality_entry_5">TV PAL 704x576</string>
+    <string name="pref_camera_videoquality_entry_6">VGA 640x480</string>
+    <string name="pref_camera_videoquality_entry_7">QVGA 320x240</string>
+
     <!-- Settings screen, Video codec dialog title -->
     <string name="pref_camera_videoquality_dialogtitle">Video quality</string>
+
+    <!-- Settings screen, Audio Encoder category title -->
+    <string name="pref_camera_audioencoder_category">Audio Encoder</string>
+
+    <!-- Default Audio Encoder setting. A numerical value. Do not translate. -->
+    <string name="pref_camera_audioencoder_default">1</string>
+
+    <!-- Settings screen, Select Audio Encoder title -->
+    <string name="pref_camera_audioencoder_title">Select Audio Encoder</string>
+
+    <!-- Settings screen, Audio Encoder dialog radio button choices -->
+    <string name="pref_camera_audioencoder_entry_1">AMR-NB</string>
+    <string name="pref_camera_audioencoder_entry_2">AAC</string>
+
+    <!-- Settings screen, Audio Encoder dialog title -->
+    <string name="pref_camera_audioencoder_dialogtitle">Audio Encoder</string>
+
+    <!-- Settings screen, Video Encoder category title -->
+    <string name="pref_camera_videoencoder_category">Video Encoder</string>
+
+    <!-- Default Video Encoder setting. A numerical value. Do not translate. -->
+    <string name="pref_camera_videoencoder_default">1</string>
+
+    <!-- Settings screen, Select Video Encoder title -->
+    <string name="pref_camera_videoencoder_title">Select Video Encoder</string>
+
+    <!-- Settings screen, Video Encoder dialog radio button choices -->
+    <string name="pref_camera_videoencoder_entry_1">H263</string>
+    <string name="pref_camera_videoencoder_entry_2">H264</string>
+    <string name="pref_camera_videoencoder_entry_3">MPEG4</string>
+
+    <!-- Settings screen, Video Encoder dialog title -->
+    <string name="pref_camera_videoencoder_dialogtitle">Video Encoder</string>
+
+    <!-- Settings screen, Output Format category title -->
+    <string name="pref_camera_outputformat_category">Output Format</string>
+
+    <!-- Default Output Format setting. A numerical value. Do not translate. -->
+    <string name="pref_camera_outputformat_default">1</string>
+
+    <!-- Settings screen, Select Output Format title -->
+    <string name="pref_camera_outputformat_title">Select Output Format</string>
+
+    <!-- Settings screen, Output Format dialog radio button choices -->
+    <string name="pref_camera_outputformat_entry_1">3GP</string>
+    <string name="pref_camera_outputformat_entry_2">MP4</string>
+    <string name="pref_camera_outputformat_entry_3">RAW AMR</string>
+
+    <!-- Settings screen, Output Format dialog title -->
+    <string name="pref_camera_outputformat_dialogtitle">Output Format</string>
     
     <!-- Menu item to go to the settings screen -->
     <string name="camerasettings">Settings</string>
