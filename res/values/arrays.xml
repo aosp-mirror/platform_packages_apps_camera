@@ -20,12 +20,62 @@
     <string-array name="pref_camera_videoquality_entries">
         <item>@string/pref_camera_videoquality_entry_0</item>
         <item>@string/pref_camera_videoquality_entry_1</item>
+        <item>@string/pref_camera_videoquality_entry_2</item>
+        <item>@string/pref_camera_videoquality_entry_3</item>
+        <item>@string/pref_camera_videoquality_entry_4</item>
+        <item>@string/pref_camera_videoquality_entry_5</item>
+        <item>@string/pref_camera_videoquality_entry_6</item>
+        <item>@string/pref_camera_videoquality_entry_7</item>
     </string-array>
 
 	<!-- Do not localize entryvalues -->
     <string-array name="pref_camera_videoquality_entryvalues">
         <item>0</item>
         <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
     </string-array>
 
+    <!-- Camera Preferences Audio Encoder dialog box entries -->
+    <string-array name="pref_camera_audioencoder_entries">
+        <item>@string/pref_camera_audioencoder_entry_1</item>
+        <item>@string/pref_camera_audioencoder_entry_2</item>
+        <item>@string/pref_camera_audioencoder_entry_3</item>
+    </string-array>
+
+    <string-array name="pref_camera_audioencoder_entryvalues">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <!-- Camera Preferences Video Encoder dialog box entries -->
+    <string-array name="pref_camera_videoencoder_entries">
+        <item>@string/pref_camera_videoencoder_entry_1</item>
+        <item>@string/pref_camera_videoencoder_entry_2</item>
+        <item>@string/pref_camera_videoencoder_entry_3</item>
+    </string-array>
+
+    <string-array name="pref_camera_videoencoder_entryvalues">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <!-- Camera Preferences Output Format dialog box entries -->
+    <string-array name="pref_camera_outputformat_entries">
+        <item>@string/pref_camera_outputformat_entry_1</item>
+        <item>@string/pref_camera_outputformat_entry_2</item>
+        <item>@string/pref_camera_outputformat_entry_3</item>
+    </string-array>
+
+    <string-array name="pref_camera_outputformat_entryvalues">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
 </resources>
