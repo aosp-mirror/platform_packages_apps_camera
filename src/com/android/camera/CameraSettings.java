@@ -29,9 +29,22 @@ public class CameraSettings extends PreferenceActivity
     implements OnSharedPreferenceChangeListener
 {
     public static final String KEY_VIDEO_QUALITY = "pref_camera_videoquality_key";
-    public static final boolean DEFAULT_VIDEO_QUALITY_VALUE = true;
+    public static final int DEFAULT_VIDEO_QUALITY_VALUE = 0;
+
+    public static final String KEY_AUDIO_ENCODER = "pref_camera_audioencoder_key";
+    public static final int DEFAULT_AUDIO_ENCODER_VALUE = 1;
+
+    public static final String KEY_VIDEO_ENCODER = "pref_camera_videoencoder_key";
+    public static final int DEFAULT_VIDEO_ENCODER_VALUE = 1;
+
+    public static final String KEY_OUTPUT_FORMAT = "pref_camera_outputformat_key";
+    public static final int DEFAULT_OUTPUT_FORMAT_VALUE = 1;
+
 
     private ListPreference mVideoQuality;
+    private ListPreference mAudioEncoder;
+    private ListPreference mVideoEncoder;
+    private ListPreference mOutputFormat;
 
     public CameraSettings()
     {
@@ -51,20 +64,86 @@ public class CameraSettings extends PreferenceActivity
     protected void onResume() {
         super.onResume();
         updateVideoQuality();
+        updateAudioEncoder();
+        updateVideoEncoder();
+        updateOutputFormat();
     }
 
     private void initUI() {
         mVideoQuality = (ListPreference) findPreference(KEY_VIDEO_QUALITY);
+        mAudioEncoder = (ListPreference) findPreference(KEY_AUDIO_ENCODER);
+        mVideoEncoder = (ListPreference) findPreference(KEY_VIDEO_ENCODER);
+        mOutputFormat = (ListPreference) findPreference(KEY_OUTPUT_FORMAT);
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
     }
 
     private void updateVideoQuality() {
-        boolean vidQualityValue = getBooleanPreference(mVideoQuality, DEFAULT_VIDEO_QUALITY_VALUE);
-        int vidQualityIndex = vidQualityValue ? 1 : 0;
+        int vidQualityValue = getIntPreference(mVideoQuality, DEFAULT_VIDEO_QUALITY_VALUE);
+        int vidQualityIndex = 0;
+        vidQualityIndex = vidQualityValue;
         String[] vidQualities =
             getResources().getStringArray(R.array.pref_camera_videoquality_entries);
         String vidQuality = vidQualities[vidQualityIndex];
         mVideoQuality.setSummary(vidQuality);
+    }
+
+    private void updateAudioEncoder() {
+        int vidAudioEncoderValue = getIntPreference(mAudioEncoder,DEFAULT_AUDIO_ENCODER_VALUE );
+        int vidAudioEncoderIndex = 0;
+        if(vidAudioEncoderValue == 1){        // MediaRecorder.AudioEncoder.AMR_NB
+            vidAudioEncoderIndex = 0;
+        }
+        else if(vidAudioEncoderValue == 2){   // MediaRecorder.AudioEncoder.AMR_WB
+
+            vidAudioEncoderIndex = 1;
+        }
+        else if(vidAudioEncoderValue == 3){   // MediaRecorder.AudioEncoder.AAC
+            vidAudioEncoderIndex = 2;
+        }
+        String[] vidAudioEncoders =
+            getResources().getStringArray(R.array.pref_camera_audioencoder_entries);
+        String vidAudioEncoder = vidAudioEncoders[vidAudioEncoderIndex];
+        mAudioEncoder.setSummary(vidAudioEncoder);
+    }
+
+    private void updateVideoEncoder() {
+        int vidVideoEncoderValue = getIntPreference(mVideoEncoder,DEFAULT_VIDEO_ENCODER_VALUE );
+        int vidVideoEncoderIndex = 0;
+        if(vidVideoEncoderValue == 1){        // MediaRecorder.VideoEncoder.H263
+            vidVideoEncoderIndex = 0;
+        }
+        else if(vidVideoEncoderValue == 2){   // MediaRecorder.VideoEncoder.H264
+
+            vidVideoEncoderIndex = 1;
+        }
+        else if(vidVideoEncoderValue == 3){   // MediaRecorder.VideoEncoder.MPEG4
+
+            vidVideoEncoderIndex = 2;
+        }
+        String[] vidVideoEncoders =
+            getResources().getStringArray(R.array.pref_camera_videoencoder_entries);
+        String vidVideoEncoder = vidVideoEncoders[vidVideoEncoderIndex];
+        mVideoEncoder.setSummary(vidVideoEncoder);
+    }
+
+    private void updateOutputFormat() {
+        int vidOutputFormatValue = getIntPreference(mOutputFormat,DEFAULT_OUTPUT_FORMAT_VALUE );
+        int vidOutputFormatIndex = 0;
+        if(vidOutputFormatValue == 1){        // MediaRecorder.OutputFormat.THREE_GPP
+            vidOutputFormatIndex = 0;
+        }
+        else if(vidOutputFormatValue == 2){   // MediaRecorder.OutputFormat.MPEG_4
+
+            vidOutputFormatIndex = 1;
+        }
+        else if(vidOutputFormatValue == 3){   // MediaRecorder.OutputFormat.RAW_AMR
+
+            vidOutputFormatIndex = 2;
+        }
+        String[] vidOutputFormats =
+            getResources().getStringArray(R.array.pref_camera_outputformat_entries);
+        String vidOutputFormat = vidOutputFormats[vidOutputFormatIndex];
+        mOutputFormat.setSummary(vidOutputFormat);
     }
 
     private static int getIntPreference(ListPreference preference, int defaultValue) {
@@ -86,8 +165,13 @@ public class CameraSettings extends PreferenceActivity
             String key) {
            if (key.equals(KEY_VIDEO_QUALITY)) {
                updateVideoQuality();
+           }else if (key.equals(KEY_AUDIO_ENCODER)) {
+               updateAudioEncoder();
+           }else if (key.equals(KEY_VIDEO_ENCODER)) {
+               updateVideoEncoder();
+           }else if (key.equals(KEY_OUTPUT_FORMAT)) {
+               updateOutputFormat();
            }
-
     }
 }
 
