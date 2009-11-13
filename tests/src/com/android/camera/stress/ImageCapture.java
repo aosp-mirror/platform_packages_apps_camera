@@ -156,8 +156,11 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
     }
 
     public boolean validateMemoryResult (int startPid, int startMemory, Writer output) throws Exception {
+        Thread.sleep(20000);
         mEndPid = getMediaserverPid();
         mEndMemory = getMediaserverVsize();
+        output.write("Start Memory = " + startMemory + "\n");
+        output.write("End Memory = " + mEndMemory + "\n");
         Log.v(TAG, "End memory :" + mEndMemory);
         //Write the total memory different into the output file
         output.write("The total diff = " + (mEndMemory - startMemory));
@@ -190,7 +193,7 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
             output.write("No of loops : " + TOTAL_NUMBER_OF_VIDEOCAPTURE + "\n");
             getMemoryWriteToLog(output);
 
-            mOut.write("Video Camera Capture\n");
+            mOut.write("Camera Image Capture\n");
             mOut.write("No of loops :" + TOTAL_NUMBER_OF_VIDEOCAPTURE + "\n");
             mOut.write("loop: ");
 
@@ -239,10 +242,10 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
 
         try {
             Writer output = new BufferedWriter(new FileWriter(imageCaptureMemFile, true));
-            output.write("Camera Image capture\n");
+            output.write("Camera Video capture\n");
             output.write("No of loops : " + TOTAL_NUMBER_OF_VIDEOCAPTURE + "\n");
             getMemoryWriteToLog(output);
-            mOut.write("Video Camera Capture\n");
+            mOut.write("Camera Video Capture\n");
             mOut.write("No of loops :" + TOTAL_NUMBER_OF_VIDEOCAPTURE + "\n");
             mOut.write("loop: ");
             // Switch to the video mode

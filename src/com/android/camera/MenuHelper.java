@@ -591,11 +591,11 @@ public class MenuHelper {
                     return;
                 }
 
-                Intent cropIntent = new Intent();
-                cropIntent.setClass(activity, CropImage.class);
+                Intent cropIntent = new Intent(
+                        "com.android.camera.action.CROP");
                 cropIntent.setData(u);
-                activity.startActivityForResult(cropIntent,
-                        RESULT_COMMON_MENU_CROP);
+                activity.startActivityForResult(
+                        cropIntent, RESULT_COMMON_MENU_CROP);
             }
         });
         return true;
@@ -1066,8 +1066,9 @@ public class MenuHelper {
                 String storageDirectory =
                         Environment.getExternalStorageDirectory().toString();
                 StatFs stat = new StatFs(storageDirectory);
+                final int PICTURE_BYTES = 1500000;
                 float remaining = ((float) stat.getAvailableBlocks()
-                        * (float) stat.getBlockSize()) / 400000F;
+                        * (float) stat.getBlockSize()) / PICTURE_BYTES;
                 return (int) remaining;
             }
         } catch (Exception ex) {

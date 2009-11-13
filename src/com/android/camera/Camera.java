@@ -44,6 +44,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.text.format.DateFormat;
@@ -103,26 +104,13 @@ public class Camera extends Activity implements View.OnClickListener,
     private static final String SCENE_MODE_ON = "on";
     private static final String SCENE_MODE_OFF = "off";
 
-    private double mZoomValue;  // The current zoom value.
-    private double mZoomStep;
-    private double mZoomMax;
-    public static final double ZOOM_STEP_MIN = 0.25;
-    public static final String ZOOM_STOP = "stop";
-    public static final String ZOOM_IMMEDIATE = "zoom-immediate";
-    public static final String ZOOM_CONTINUOUS = "zoom-continuous";
-    public static final double ZOOM_MIN = 1.0;
-    public static final String ZOOM_SPEED = "99";
+    private boolean mZooming = false;
+    private boolean mSmoothZoomSupported = false;
+    private int mZoomValue;  // The current zoom value.
+    private int mZoomMax;
 
     private Parameters mParameters;
-    private Parameters mInitialParameters;
-
-    // The non-standard parameter strings to communicate with camera driver.
-    // This will be removed in the future.
-    public static final String PARM_ZOOM_STATE = "mot-zoom-state";
-    public static final String PARM_ZOOM_STEP = "mot-zoom-step";
-    public static final String PARM_ZOOM_TO_LEVEL = "mot-zoom-to-level";
-    public static final String PARM_ZOOM_SPEED = "mot-zoom-speed";
-    public static final String PARM_ZOOM_MAX = "mot-max-picture-continuous-zoom";
+    private Parameters mInitialParams;
 
     private OrientationEventListener mOrientationListener;
     private int mLastOrientation = OrientationEventListener.ORIENTATION_UNKNOWN;
@@ -189,6 +177,8 @@ public class Camera extends Activity implements View.OnClickListener,
     private final OneShotPreviewCallback mOneShotPreviewCallback =
             new OneShotPreviewCallback();
     private final ShutterCallback mShutterCallback = new ShutterCallback();
+    private final PostViewPictureCallback mPostViewPictureCallback =
+            new PostViewPictureCallback();
     private final RawPictureCallback mRawPictureCallback =
             new RawPictureCallback();
     private final AutoFocusCallback mAutoFocusCallback =
@@ -202,6 +192,7 @@ public class Camera extends Activity implements View.OnClickListener,
     private long mFocusCallbackTime;
     private long mCaptureStartTime;
     private long mShutterCallbackTime;
+    private long mPostViewPictureCallbackTime;
     private long mRawPictureCallbackTime;
     private long mJpegPictureCallbackTime;
     private int mPicturesRemaining;
@@ -209,9 +200,9 @@ public class Camera extends Activity implements View.OnClickListener,
     // These latency time are for the CameraLatency test.
     public long mAutoFocusTime;
     public long mShutterLag;
-    public long mShutterAndRawPictureCallbackTime;
-    public long mJpegPictureCallbackTimeLag;
-    public long mRawPictureAndJpegPictureCallbackTime;
+    public long mShutterToPictureDisplayedTime;
+    public long mPictureDisplayedToJpegCallbackTime;
+    public long mJpegCallbackToFirstFrameTime;
 
     // Add the media server tag
     public static boolean mMediaServerDied = false;
@@ -340,8 +331,6 @@ public class Camera extends Activity implements View.OnClickListener,
         checkStorage();
 
         if (mZoomButtons != null) {
-            mZoomValue = Double.parseDouble(
-                    mParameters.get(PARM_ZOOM_TO_LEVEL));
             mCameraDevice.setZoomCallback(mZoomCallback);
         }
 
@@ -351,15 +340,12 @@ public class Camera extends Activity implements View.OnClickListener,
     }
 
     private void initializeZoom() {
-        // Check if the phone has zoom capability.
-        String zoomState = mParameters.get(PARM_ZOOM_STATE);
-        if (zoomState == null) return;
+        if (!mParameters.isZoomSupported()) return;
 
-        mZoomValue = Double.parseDouble(mParameters.get(PARM_ZOOM_TO_LEVEL));
-        mZoomMax = Double.parseDouble(mParameters.get(PARM_ZOOM_MAX));
-        mZoomStep = Double.parseDouble(mParameters.get(PARM_ZOOM_STEP));
-        mParameters.set(PARM_ZOOM_SPEED, ZOOM_SPEED);
-        mCameraDevice.setParameters(mParameters);
+        mZoomMax = mParameters.getMaxZoom();
+        Log.v(TAG, "Max zoom=" + mZoomMax);
+        mSmoothZoomSupported = mParameters.isSmoothZoomSupported();
+        Log.v(TAG, "Smooth zoom supported=" + mSmoothZoomSupported);
 
         mGestureDetector = new GestureDetector(this, new ZoomGestureListener());
         mCameraDevice.setZoomCallback(mZoomCallback);
@@ -379,11 +365,25 @@ public class Camera extends Activity implements View.OnClickListener,
 
                 if (zoomIn) {
                     if (mZoomValue < mZoomMax) {
-                        zoomToLevel(ZOOM_CONTINUOUS, mZoomValue + mZoomStep);
+                        if (mSmoothZoomSupported) {
+                            mCameraDevice.startSmoothZoom(mZoomValue + 1);
+                            mZooming = true;
+                        } else {
+                            mParameters.setZoom(++mZoomValue);
+                            mCameraDevice.setParameters(mParameters);
+                            updateZoomButtonsEnabled();
+                        }
                     }
                 } else {
-                    if (mZoomValue > ZOOM_MIN) {
-                        zoomToLevel(ZOOM_CONTINUOUS, mZoomValue - mZoomStep);
+                    if (mZoomValue > 0) {
+                        if (mSmoothZoomSupported) {
+                            mCameraDevice.startSmoothZoom(mZoomValue - 1);
+                            mZooming = true;
+                        } else {
+                            mParameters.setZoom(--mZoomValue);
+                            mCameraDevice.setParameters(mParameters);
+                            updateZoomButtonsEnabled();
+                        }
                     }
                 }
             }
@@ -405,30 +405,13 @@ public class Camera extends Activity implements View.OnClickListener,
     }
 
     private boolean isZooming() {
-        mParameters = mCameraDevice.getParameters();
-        return "continuous".equals(mParameters.get(PARM_ZOOM_STATE));
-    }
-
-    private void zoomToLevel(String type, double zoomValue) {
-        if (zoomValue > mZoomMax) zoomValue = mZoomMax;
-        if (zoomValue < ZOOM_MIN) zoomValue = ZOOM_MIN;
-
-        // If the application sets a unchanged zoom value, the driver will stuck
-        // at the zoom state. This is a work-around to ensure the state is at
-        // "stop".
-        mParameters.set(PARM_ZOOM_STATE, ZOOM_STOP);
-        mCameraDevice.setParameters(mParameters);
-
-        mParameters.set(PARM_ZOOM_TO_LEVEL, Double.toString(zoomValue));
-        mParameters.set(PARM_ZOOM_STATE, type);
-        mCameraDevice.setParameters(mParameters);
-
-        if (ZOOM_IMMEDIATE.equals(type)) mZoomValue = zoomValue;
+        Log.v(TAG, "mZooming=" + mZooming);
+        return mZooming;
     }
 
     private void updateZoomButtonsEnabled() {
         mZoomButtons.setZoomInEnabled(mZoomValue < mZoomMax);
-        mZoomButtons.setZoomOutEnabled(mZoomValue > ZOOM_MIN);
+        mZoomButtons.setZoomOutEnabled(mZoomValue > 0);
     }
 
     private class ZoomGestureListener extends
@@ -457,7 +440,8 @@ public class Camera extends Activity implements View.OnClickListener,
             if (mZoomValue < mZoomMax) {
                 // Zoom in to the maximum.
                 while (mZoomValue < mZoomMax) {
-                    zoomToLevel(ZOOM_IMMEDIATE, mZoomValue + ZOOM_STEP_MIN);
+                    mParameters.setZoom(++mZoomValue);
+                    mCameraDevice.setParameters(mParameters);
                     // Wait for a while so we are not changing zoom too fast.
                     try {
                         Thread.sleep(5);
@@ -466,8 +450,9 @@ public class Camera extends Activity implements View.OnClickListener,
                 }
             } else {
                 // Zoom out to the minimum.
-                while (mZoomValue > ZOOM_MIN) {
-                    zoomToLevel(ZOOM_IMMEDIATE, mZoomValue - ZOOM_STEP_MIN);
+                while (mZoomValue > 0) {
+                    mParameters.setZoom(--mZoomValue);
+                    mCameraDevice.setParameters(mParameters);
                     // Wait for a while so we are not changing zoom too fast.
                     try {
                         Thread.sleep(5);
@@ -571,9 +556,9 @@ public class Camera extends Activity implements View.OnClickListener,
                                    android.hardware.Camera camera) {
             long now = System.currentTimeMillis();
             if (mJpegPictureCallbackTime != 0) {
-                mJpegPictureCallbackTimeLag = now - mJpegPictureCallbackTime;
-                Log.v(TAG, "mJpegPictureCallbackTimeLag = "
-                        + mJpegPictureCallbackTimeLag + "ms");
+                mJpegCallbackToFirstFrameTime = now - mJpegPictureCallbackTime;
+                Log.v(TAG, "mJpegCallbackToFirstFrameTime = "
+                        + mJpegCallbackToFirstFrameTime + "ms");
                 mJpegPictureCallbackTime = 0;
             } else {
                 Log.v(TAG, "Got first frame");
@@ -591,14 +576,22 @@ public class Camera extends Activity implements View.OnClickListener,
         }
     }
 
+    private final class PostViewPictureCallback implements PictureCallback {
+        public void onPictureTaken(
+                byte [] data, android.hardware.Camera camera) {
+            mPostViewPictureCallbackTime = System.currentTimeMillis();
+            Log.v(TAG, "mShutterToPostViewCallbackTime = "
+                    + (mPostViewPictureCallbackTime - mShutterCallbackTime)
+                    + "ms");
+        }
+    }
+
     private final class RawPictureCallback implements PictureCallback {
         public void onPictureTaken(
                 byte [] rawData, android.hardware.Camera camera) {
             mRawPictureCallbackTime = System.currentTimeMillis();
-            mShutterAndRawPictureCallbackTime =
-                mRawPictureCallbackTime - mShutterCallbackTime;
-            Log.v(TAG, "mShutterAndRawPictureCallbackTime = "
-                    + mShutterAndRawPictureCallbackTime + "ms");
+            Log.v(TAG, "mShutterToRawCallbackTime = "
+                    + (mRawPictureCallbackTime - mShutterCallbackTime) + "ms");
         }
     }
 
@@ -616,18 +609,40 @@ public class Camera extends Activity implements View.OnClickListener,
             }
 
             mJpegPictureCallbackTime = System.currentTimeMillis();
-            mRawPictureAndJpegPictureCallbackTime =
-                mJpegPictureCallbackTime - mRawPictureCallbackTime;
-            Log.v(TAG, "mRawPictureAndJpegPictureCallbackTime = "
-                    + mRawPictureAndJpegPictureCallbackTime + "ms");
-            mImageCapture.storeImage(jpegData, camera, mLocation);
+            // If postview callback has arrived, the captured image is displayed
+            // in postview callback. If not, the captured image is displayed in
+            // raw picture callback.
+            if (mPostViewPictureCallbackTime != 0) {
+                mShutterToPictureDisplayedTime =
+                        mPostViewPictureCallbackTime - mShutterCallbackTime;
+                mPictureDisplayedToJpegCallbackTime =
+                        mJpegPictureCallbackTime - mPostViewPictureCallbackTime;
+            } else {
+                mShutterToPictureDisplayedTime =
+                        mRawPictureCallbackTime - mShutterCallbackTime;
+                mPictureDisplayedToJpegCallbackTime =
+                        mJpegPictureCallbackTime - mRawPictureCallbackTime;
+            }
+            Log.v(TAG, "mPictureDisplayedToJpegCallbackTime = "
+                    + mPictureDisplayedToJpegCallbackTime + "ms");
 
             if (!mIsImageCaptureIntent) {
-                long delay = 1200 - (
-                        System.currentTimeMillis() - mRawPictureCallbackTime);
-                mHandler.sendEmptyMessageDelayed(
-                        RESTART_PREVIEW, Math.max(delay, 0));
+                // We want to show the taken picture for a while, so we wait
+                // for at least 1.2 second before restarting the preview.
+                long delay = 1200 - mPictureDisplayedToJpegCallbackTime;
+                if (delay < 0) {
+                    restartPreview();
+                } else {
+                    mHandler.sendEmptyMessageDelayed(RESTART_PREVIEW, delay);
+                }
             }
+            mImageCapture.storeImage(jpegData, camera, mLocation);
+
+            // Calculate this in advance of each shot so we don't add to shutter
+            // latency. It's true that someone else could write to the SD card in
+            // the mean time and fill it, but that could have happened between the
+            // shutter press and saving the JPEG too.
+            calculatePicturesRemaining();
         }
     }
 
@@ -680,11 +695,17 @@ public class Camera extends Activity implements View.OnClickListener,
 
     private final class ZoomCallback
             implements android.hardware.Camera.ZoomCallback {
-        public void onZoomUpdate(int zoomLevel, boolean stopped,
-                android.hardware.Camera camera) {
-            mZoomValue = (double) zoomLevel / 1000;
-            Log.v(TAG, "ZoomCallback: zoom level=" + zoomLevel + ".stopped="
+        public void onZoomUpdate(int zoomValue, boolean stopped,
+                                 android.hardware.Camera camera) {
+            Log.v(TAG, "ZoomCallback: zoom value=" + zoomValue + ". stopped="
                     + stopped);
+            mZoomValue = zoomValue;
+            // Keep mParameters up to date. We do not getParameter again in
+            // takePicture. If we do not do this, wrong zoom value will be set.
+            mParameters.setZoom(zoomValue);
+            // We only care if the zoom is stopped. mZooming is set to true when
+            // we start smooth zoom.
+            if (stopped) mZooming = false;
             updateZoomButtonsEnabled();
         }
     }
@@ -811,7 +832,7 @@ public class Camera extends Activity implements View.OnClickListener,
             mCameraDevice.setParameters(mParameters);
 
             mCameraDevice.takePicture(mShutterCallback, mRawPictureCallback,
-                    new JpegPictureCallback(loc));
+                    mPostViewPictureCallback, new JpegPictureCallback(loc));
             mPreviewing = false;
         }
 
@@ -821,6 +842,7 @@ public class Camera extends Activity implements View.OnClickListener,
                 return;
             }
             mCaptureStartTime = System.currentTimeMillis();
+            mPostViewPictureCallbackTime = 0;
 
             // Don't check the filesystem here, we can't afford the latency.
             // Instead, check the cached value which was calculated when the
@@ -876,6 +898,7 @@ public class Camera extends Activity implements View.OnClickListener,
         mSurfaceView = (SurfaceView) findViewById(R.id.camera_preview);
 
         mPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        CameraSettings.upgradePreferences(mPreferences);
 
         /*
          * To reduce startup time, we start the preview in another thread.
@@ -982,7 +1005,7 @@ public class Camera extends Activity implements View.OnClickListener,
             mSettings = new OnScreenSettings(
                     findViewById(R.id.camera_preview));
             CameraSettings helper =
-                    new CameraSettings(this, mInitialParameters);
+                    new CameraSettings(this, mInitialParams);
             mSettings.setPreferenceScreen(helper
                     .getPreferenceScreen(R.xml.camera_preferences));
             mSettings.setOnVisibilityChangedListener(this);
@@ -1109,8 +1132,8 @@ public class Camera extends Activity implements View.OnClickListener,
                 newExtras.putBoolean("return-data", true);
             }
 
-            Intent cropIntent = new Intent();
-            cropIntent.setClass(this, CropImage.class);
+            Intent cropIntent = new Intent("com.android.camera.action.CROP");
+
             cropIntent.setData(tempUri);
             cropIntent.putExtras(newExtras);
 
@@ -1213,6 +1236,7 @@ public class Camera extends Activity implements View.OnClickListener,
 
         mPausing = false;
         mJpegPictureCallbackTime = 0;
+        mZoomValue = 0;
         mImageCapture = new ImageCapture();
 
         // Start the preview if it is not started.
@@ -1504,6 +1528,7 @@ public class Camera extends Activity implements View.OnClickListener,
     private void closeCamera() {
         if (mCameraDevice != null) {
             CameraHolder.instance().release();
+            if (mZoomButtons != null) mCameraDevice.setZoomCallback(null);
             mCameraDevice = null;
             mPreviewing = false;
         }
@@ -1512,7 +1537,7 @@ public class Camera extends Activity implements View.OnClickListener,
     private void ensureCameraDevice() throws CameraHardwareException {
         if (mCameraDevice == null) {
             mCameraDevice = CameraHolder.instance().open();
-            mInitialParameters = mCameraDevice.getParameters();
+            mInitialParams = mCameraDevice.getParameters();
         }
     }
 
@@ -1549,12 +1574,6 @@ public class Camera extends Activity implements View.OnClickListener,
             showCameraErrorAndFinish();
             return;
         }
-
-        // Calculate this in advance of each shot so we don't add to shutter
-        // latency. It's true that someone else could write to the SD card in
-        // the mean time and fill it, but that could have happened between the
-        // shutter press and saving the JPEG too.
-        calculatePicturesRemaining();
     }
 
     private void setPreviewDisplay(SurfaceHolder holder) {
@@ -1593,6 +1612,7 @@ public class Camera extends Activity implements View.OnClickListener,
             throw new RuntimeException("startPreview failed", ex);
         }
         mPreviewing = true;
+        mZooming = false;
         mStatus = IDLE;
 
         long threadTimeEnd = Debug.threadCpuTimeNanos();
@@ -1671,6 +1691,28 @@ public class Camera extends Activity implements View.OnClickListener,
     private void setCameraParameters() {
         mParameters = mCameraDevice.getParameters();
 
+        // Since change scene mode may change supported values,
+        // Set scene mode first,
+        String sceneMode = mPreferences.getString(
+                CameraSettings.KEY_SCENE_MODE,
+                getString(R.string.pref_camera_scenemode_default));
+        if (isSupported(sceneMode, mParameters.getSupportedSceneModes())) {
+            if (!mParameters.getSceneMode().equals(sceneMode)) {
+                mParameters.setSceneMode(sceneMode);
+                mCameraDevice.setParameters(mParameters);
+
+                // Setting scene mode will change the settings of flash mode, white
+                // balance, and focus mode. So read back here, so that we know
+                // what're the settings
+                mParameters = mCameraDevice.getParameters();
+            }
+        } else {
+            sceneMode = mParameters.getSceneMode();
+            if (sceneMode == null) {
+                sceneMode = Parameters.SCENE_MODE_AUTO;
+            }
+        }
+
         // Reset preview frame rate to the maximum because it may be lowered by
         // video camera application.
         List<Integer> frameRates = mParameters.getSupportedPreviewFrameRates();
@@ -1709,7 +1751,12 @@ public class Camera extends Activity implements View.OnClickListener,
         String jpegQuality = mPreferences.getString(
                 CameraSettings.KEY_JPEG_QUALITY,
                 getString(R.string.pref_camera_jpegquality_default));
-        mParameters.setJpegQuality(Integer.parseInt(jpegQuality));
+        mParameters.setJpegQuality(getQualityNumber(jpegQuality));
+
+        // Set zoom.
+        if (mParameters.isZoomSupported()) {
+            mParameters.setZoom(mZoomValue);
+        }
 
         // For the following settings, we need to check if the settings are
         // still supported by latest driver, if not, ignore the settings.
@@ -1722,31 +1769,11 @@ public class Camera extends Activity implements View.OnClickListener,
             mParameters.setColorEffect(colorEffect);
         }
 
-        // Set scene mode.
-        String sceneMode = mPreferences.getString(
-                CameraSettings.KEY_SCENE_MODE,
-                getString(R.string.pref_camera_scenemode_default));
-        if (isSupported(sceneMode, mParameters.getSupportedSceneModes())) {
-            mParameters.setSceneMode(sceneMode);
-        } else {
-            sceneMode = mParameters.getSceneMode();
-            if (sceneMode == null) {
-                sceneMode = Parameters.SCENE_MODE_AUTO;
-            }
-        }
-
         // If scene mode is set, we cannot set flash mode, white balance, and
         // focus mode, instead, we read it from driver
         String flashMode;
         String whiteBalance;
-
         if (!Parameters.SCENE_MODE_AUTO.equals(sceneMode)) {
-            mCameraDevice.setParameters(mParameters);
-
-            // Setting scene mode will change the settings of flash mode, white
-            // balance, and focus mode. So read back here, so that we know
-            // what's the settings
-            mParameters = mCameraDevice.getParameters();
             flashMode = mParameters.getFlashMode();
             whiteBalance = mParameters.getWhiteBalance();
             mFocusMode = mParameters.getFocusMode();
@@ -1784,7 +1811,8 @@ public class Camera extends Activity implements View.OnClickListener,
             whiteBalance = mPreferences.getString(
                     CameraSettings.KEY_WHITE_BALANCE,
                     getString(R.string.pref_camera_whitebalance_default));
-            if (isSupported(whiteBalance, mParameters.getSupportedWhiteBalance())) {
+            if (isSupported(whiteBalance,
+                    mParameters.getSupportedWhiteBalance())) {
                 mParameters.setWhiteBalance(whiteBalance);
             } else {
                 whiteBalance = mParameters.getWhiteBalance();
@@ -2035,6 +2063,28 @@ public class Camera extends Activity implements View.OnClickListener,
         mHandler.removeMessages(CLEAR_SCREEN_DELAY);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         mHandler.sendEmptyMessageDelayed(CLEAR_SCREEN_DELAY, SCREEN_DELAY);
+    }
+
+    private static String[] mQualityStrings = {"superfine", "fine", "normal"};
+    private static String[] mQualityNumbers = SystemProperties.get(
+            "ro.media.enc.jpeg.quality", "85,75,65").split(",");
+    private static int DEFAULT_QUALITY = 85;
+
+    // Translate from a quality string to a quality number using the system
+    // properties.
+    private static int getQualityNumber(String jpegQuality) {
+        // Find the index of the input string
+        int index = Util.indexOf(mQualityStrings, jpegQuality);
+
+        if (index == -1 || index > mQualityNumbers.length - 1) {
+            return DEFAULT_QUALITY;
+        }
+
+        try {
+            return Integer.parseInt(mQualityNumbers[index]);
+        } catch (NumberFormatException ex) {
+            return DEFAULT_QUALITY;
+        }
     }
 }
 
