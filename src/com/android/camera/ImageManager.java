@@ -220,9 +220,10 @@ public class ImageManager {
         protected Void execute() throws InterruptedException,
                 ExecutionException {
             boolean complete = false;
+            BaseImageList il = null;
             try {
                 long id = ContentUris.parseId(mUri);
-                BaseImageList il = new ImageList(
+                il = new ImageList(
                         STORAGE_URI, THUMB_URI, SORT_ASCENDING, null);
                 il.open(mCr);
 
@@ -251,6 +252,7 @@ public class ImageManager {
                 complete = true;
                 return null;
             } finally {
+                if (il != null) il.deactivate();
                 if (!complete) {
                     try {
                         mCr.delete(mUri, null, null);
