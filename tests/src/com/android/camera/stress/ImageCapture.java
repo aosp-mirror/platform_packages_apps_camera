@@ -19,6 +19,7 @@ package com.android.camera.stress;
 import com.android.camera.Camera;
 
 import android.app.Instrumentation;
+import android.os.Environment;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
@@ -51,7 +52,9 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
     private static final long WAIT_FOR_PREVIEW = 1500; //1.5 seconds
     private static final long WAIT_FOR_STABLE_STATE = 2000; //2 seconds
     private static final int NO_OF_LOOPS_TAKE_MEMORY_SNAPSHOT = 10;
-    private static final String CAMERA_MEM_OUTPUTFILE = "/sdcard/ImageCaptureMemOut.txt";
+    private static final String EXTERNAL_DIR = Environment.getExternalStorageDirectory();
+    private static final String CAMERA_MEM_OUTPUTFILE =
+        EXTERNAL_DIR + "/ImageCaptureMemOut.txt";
 
     //the tolerant memory leak
     private static final int MAX_ACCEPTED_MEMORY_LEAK_KB = 150;
@@ -61,7 +64,8 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
     private static int mStartPid = 0;
     private static int mEndPid = 0;
 
-    private static final String CAMERA_TEST_OUTPUT_FILE = "/sdcard/mediaStressOut.txt";
+    private static final String CAMERA_TEST_OUTPUT_FILE =
+        EXTERNAL_DIR + "/mediaStressOut.txt";
     private BufferedWriter mOut;
     private FileWriter mfstream;
 
