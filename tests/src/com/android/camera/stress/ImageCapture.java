@@ -191,8 +191,6 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
         File imageCaptureMemFile = new File(camera_mem_out);
 
         mStartPid = getMediaserverPid();
-        mStartMemory = getMediaserverVsize();
-        Log.v(TAG, "start memory : " + mStartMemory);
 
         try {
             Writer output = new BufferedWriter(new FileWriter(imageCaptureMemFile, true));
@@ -209,6 +207,18 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
                 inst.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP);
                 inst.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER);
                 Thread.sleep(WAIT_FOR_IMAGE_CAPTURE_TO_BE_TAKEN);
+
+                //VSize is not a very good indicator for measuring memory leaks.
+                //Shared libraries and resources can be loaded on-the-fly during
+                //image capture and considerably skew this measurement. To amend
+                //this issue a bit, it would be better to start measuring after the
+                //first capture. If memory leaks exist, they would be equally evident
+                //with this modification.
+                if ( 0 == i ) {
+                    mStartMemory = getMediaserverVsize();
+                    Log.v(TAG, "start memory : " + mStartMemory);
+                }
+
                 if (( i % NO_OF_LOOPS_TAKE_MEMORY_SNAPSHOT) == 0){
                     Log.v(TAG, "value of i :" + i);
                     getMemoryWriteToLog(output);
@@ -262,7 +272,7 @@ public class ImageCapture extends ActivityInstrumentationTestCase2 <Camera> {
             mOut.write("loop: ");
             // Switch to the video mode
             Intent intent = new Intent();
-            intent.setClassName("com.google.android.camera",
+            intent.setClassName("com.android.camera",
                     "com.android.camera.VideoCamera");
             getActivity().startActivity(intent);
             for (int i = 0; i < total_num_of_videos; i++) {
