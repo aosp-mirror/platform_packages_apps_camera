@@ -717,6 +717,10 @@ public class EffectsRecorder {
         mState = STATE_PREVIEW;
     }
 
+    public boolean isStopping() {
+        return mOldRunner != null;
+    }
+
     // Stop and release effect resources
     public synchronized void stopPreview() {
         if (mLogVerbose) Log.v(TAG, "Stopping preview (" + this + ")");
@@ -822,6 +826,11 @@ public class EffectsRecorder {
                         glEnv.deactivate();
                     }
                     mOldRunner = null;
+
+                    final VideoCamera activity = (VideoCamera)mContext;
+                    if (activity.isWaitingForEffectRecorder()) {
+                        activity.processResume();
+                    }
                 }
                 if (mState == STATE_PREVIEW ||
                         mState == STATE_STARTING_PREVIEW) {

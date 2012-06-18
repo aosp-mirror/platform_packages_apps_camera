@@ -267,6 +267,8 @@ public class VideoCamera extends ActivityBase
     private ZoomControl mZoomControl;
     private final ZoomListener mZoomListener = new ZoomListener();
 
+    private boolean mIsWaitingForEffectRecorder = false;
+
     // This Handler is used to post message back onto the main thread of the
     // application
     private class MainHandler extends Handler {
@@ -819,8 +821,21 @@ public class VideoCamera extends ActivityBase
                 (double) mProfile.videoFrameWidth / mProfile.videoFrameHeight);
     }
 
+    public boolean isWaitingForEffectRecorder() {
+        return mIsWaitingForEffectRecorder;
+    }
+
     @Override
     protected void doOnResume() {
+        if (mEffectsRecorder != null && mEffectsRecorder.isStopping()) {
+            mIsWaitingForEffectRecorder = true;
+        } else {
+            processResume();
+        }
+    }
+
+    public void processResume() {
+        mIsWaitingForEffectRecorder = false;
         if (mOpenCameraFail || mCameraDisabled) return;
 
         mPausing = false;
