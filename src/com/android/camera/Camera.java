@@ -1158,7 +1158,6 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         SurfaceView preview = (SurfaceView) findViewById(R.id.camera_preview);
         SurfaceHolder holder = preview.getHolder();
         holder.addCallback(this);
-        holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         // Make sure camera device is opened.
         try {

@@ -428,7 +428,6 @@ public class VideoCamera extends ActivityBase
         SurfaceView preview = (SurfaceView) findViewById(R.id.camera_preview);
         SurfaceHolder holder = preview.getHolder();
         holder.addCallback(this);
-        holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         mQuickCapture = getIntent().getBooleanExtra(EXTRA_QUICK_CAPTURE, false);
 
