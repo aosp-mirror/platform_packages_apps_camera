@@ -947,7 +947,7 @@ public class VideoCamera extends ActivityBase
             mCameraScreenNail.releaseSurfaceTexture();
             mSurfaceTexture = null;
         }
-        if (effectsActive()) {
+        if (effectsActive() && mEffectsRecorder != null) {
             // If the effects are active, make sure we tell the graph that the
             // surfacetexture is not valid anymore. Disconnect the graph from the
             // display.
