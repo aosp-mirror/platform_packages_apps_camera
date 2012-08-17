@@ -62,10 +62,16 @@ public class DisableCameraReceiver extends BroadcastReceiver {
         int n = android.hardware.Camera.getNumberOfCameras();
         CameraInfo info = new CameraInfo();
         for (int i = 0; i < n; i++) {
-            android.hardware.Camera.getCameraInfo(i, info);
-            if (info.facing == CameraInfo.CAMERA_FACING_BACK) {
-                Log.i(TAG, "back camera found: " + i);
-                return true;
+            try {
+                android.hardware.Camera.getCameraInfo(i, info);
+                if (info.facing == CameraInfo.CAMERA_FACING_BACK) {
+                    Log.i(TAG, "back camera found: " + i);
+                    return true;
+                }
+            } catch (Exception ex) {
+                // If we can't get camera info, that counts as not a camera.
+                // This is needed on AOSP, if you don't have a binary blob for
+                // the camera.
             }
         }
         Log.i(TAG, "no back camera");
