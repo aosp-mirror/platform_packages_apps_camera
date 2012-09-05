@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "AAAI33//+Wo\u003d",
+        "filename": "src/com/android/camera/ui/OtherSettingsPopup.java",
+        "patchSetId": 2
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 1002413
+      },
+      "writtenOn": "2012-09-05T13:49:22Z",
+      "side": 1,
+      "message": "Good catch.\n\nWithout reusing the view, it needs to inflate a new view every time. To avoid object allocation, we should create all the views in the constructor and store them in an array. getView can simply return the view in the array. Thought?",
+      "revId": "75837466cbedfae03a744d49959dd35225e0e392",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    }
+  ]
+}
