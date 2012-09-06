@@ -16,6 +16,24 @@
       "revId": "75837466cbedfae03a744d49959dd35225e0e392",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "AAAI73///40\u003d",
+        "filename": "src/com/android/camera/ui/OtherSettingsPopup.java",
+        "patchSetId": 2
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 1015536
+      },
+      "writtenOn": "2012-09-06T03:45:06Z",
+      "side": 1,
+      "message": "I did think of doing that (and even started to implemented it) but it will actually allocate more objects for the common case because the constructor is called when the camera is started. Shouldn\u0027t we just rely on the garbage collector to do it\u0027s job. It would be different if the list could have a lot of entries but most vendors only put about 8 settings in here.",
+      "parentUuid": "AAAI33//+Wo\u003d",
+      "revId": "75837466cbedfae03a744d49959dd35225e0e392",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
