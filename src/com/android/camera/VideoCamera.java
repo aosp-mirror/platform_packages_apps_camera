@@ -1009,7 +1009,11 @@ public class VideoCamera extends ActivityBase
         if (mPaused) {
             return true;
         }
-
+        // If not showing camera view (ie in fullscreen thumbnail mode),
+        // ignore keyevents
+        if (!mShowCameraAppView) {
+            return super.onKeyDown(keyCode, event);
+        }
         switch (keyCode) {
             case KeyEvent.KEYCODE_CAMERA:
                 if (event.getRepeatCount() == 0) {
@@ -1033,6 +1037,11 @@ public class VideoCamera extends ActivityBase
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
+        // If not showing camera view (ie in fullscreen thumbnail mode),
+        // ignore keyevents
+        if (!mShowCameraAppView) {
+            return super.onKeyUp(keyCode, event);
+        }
         switch (keyCode) {
             case KeyEvent.KEYCODE_CAMERA:
                 mShutterButton.setPressed(false);
