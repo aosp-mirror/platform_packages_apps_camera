@@ -2763,7 +2763,12 @@ public class VideoModule implements CameraModule,
 
     @Override
     public void onPieClosed() {
-        mActivity.setSwipingEnabled(true);
+        if (mMediaRecorderRecording)
+            // if start recording when the pie opened, after closing the pie, the camera
+            // is recording, we should disable swiping gesture, ignore swiping gesture
+            mActivity.setSwipingEnabled(false);
+        else
+            mActivity.setSwipingEnabled(true);
     }
 
     public void showPopup(AbstractSettingPopup popup) {
