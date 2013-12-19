@@ -168,6 +168,7 @@ public class PhotoController extends PieController
         // if the 2nd level popup gets dismissed
         if (mSecondPopup != null) {
             mSecondPopup = null;
+            initializePopup();
             if (topPopupOnly) mModule.showPopup(mPopup);
         }
     }
