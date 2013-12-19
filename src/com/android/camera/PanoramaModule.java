@@ -314,6 +314,7 @@ public class PanoramaModule implements CameraModule,
                         onBackgroundThreadFinished();
                         resetToPreview();
                         clearMosaicFrameProcessorIfNeeded();
+                        mGLRootView.setVisibility(View.VISIBLE);
                         break;
                     case MSG_CLEAR_SCREEN_DELAY:
                         mActivity.getWindow().clearFlags(WindowManager.LayoutParams.
