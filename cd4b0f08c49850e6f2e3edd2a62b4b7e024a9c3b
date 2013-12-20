@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "088cc7b8_0c81ff9c",
+        "filename": "src/com/android/camera/PanoramaModule.java",
+        "patchSetId": 2
+      },
+      "lineNbr": 317,
+      "author": {
+        "id": 1012548
+      },
+      "writtenOn": "2013-12-20T00:58:58Z",
+      "side": 1,
+      "message": "I don\u0027t understand why this is needed. mGLRootView.setVisibility(VISIBLE) is done in reset() which is called by resetToPreview().",
+      "revId": "cd4b0f08c49850e6f2e3edd2a62b4b7e024a9c3b",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "685e23ff_2c188b8e",
+        "filename": "src/com/android/camera/PhotoController.java",
+        "patchSetId": 2
+      },
+      "lineNbr": 171,
+      "author": {
+        "id": 1012548
+      },
+      "writtenOn": "2013-12-20T00:58:58Z",
+      "side": 1,
+      "message": "Don\u0027t understand this either. mSecondPopup !\u003d null means we already have the first level popup. Why do you initialize again?",
+      "revId": "cd4b0f08c49850e6f2e3edd2a62b4b7e024a9c3b",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    }
+  ]
+}
