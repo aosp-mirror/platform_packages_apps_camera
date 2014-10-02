@@ -27,7 +27,6 @@ import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.Size;
 import android.media.CamcorderProfile;
-import android.util.FloatMath;
 import android.util.Log;
 
 import com.android.gallery3d.common.ApiHelper;
@@ -243,8 +242,8 @@ public class CameraSettings {
         float step = mParameters.getExposureCompensationStep();
 
         // show only integer values for exposure compensation
-        int maxValue = (int) FloatMath.floor(max * step);
-        int minValue = (int) FloatMath.ceil(min * step);
+        int maxValue = (int) Math.floor(max * step);
+        int minValue = (int) Math.ceil(min * step);
         CharSequence entries[] = new CharSequence[maxValue - minValue + 1];
         CharSequence entryValues[] = new CharSequence[maxValue - minValue + 1];
         int[] icons = new int[maxValue - minValue + 1];
