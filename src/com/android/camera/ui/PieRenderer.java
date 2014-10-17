@@ -554,7 +554,7 @@ public class PieRenderer extends OverlayRenderer
         res.x = (float) Math.PI / 2;
         x = x - mCenter.x;
         y = mCenter.y - y;
-        res.y = (float) Math.sqrt(x * x + y * y);
+        res.y = (float) Math.hypot(x, y);
         if (x != 0) {
             res.x = (float) Math.atan2(y,  x);
             if (res.x < 0) {
