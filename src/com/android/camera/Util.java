@@ -41,7 +41,6 @@ import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.telephony.TelephonyManager;
 import android.util.DisplayMetrics;
-import android.util.FloatMath;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Display;
@@ -365,7 +364,7 @@ public class Util {
     public static float distance(float x, float y, float sx, float sy) {
         float dx = x - sx;
         float dy = y - sy;
-        return FloatMath.sqrt(dx * dx + dy * dy);
+        return (float) Math.hypot(dx, dy);
     }
 
     public static int clamp(int x, int min, int max) {
