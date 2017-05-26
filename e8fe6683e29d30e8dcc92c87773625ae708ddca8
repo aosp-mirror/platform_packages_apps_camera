@@ -22,6 +22,30 @@
       "revId": "e8fe6683e29d30e8dcc92c87773625ae708ddca8",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "d715edf2_2b5a5e89",
+        "filename": "src/com/android/camera/CameraSettings.java",
+        "patchSetId": 2
+      },
+      "lineNbr": 245,
+      "author": {
+        "id": 1038039
+      },
+      "writtenOn": "2017-05-26T10:09:05Z",
+      "side": 1,
+      "message": "Originally, I think the justification for FloatMath was that the methods were faster and/or less memory intensive than java.lang.Math.\n\nHowever, FloatMath methods were generally slower than the double Math versions on modern CPU architectures and runtimes, and with 64-bit architectures with larger RAM becoming the norm it wasn\u0027t worth keeping it.",
+      "parentUuid": "24509d5b_bde12a8f",
+      "range": {
+        "startLine": 245,
+        "startChar": 29,
+        "endLine": 245,
+        "endChar": 33
+      },
+      "revId": "e8fe6683e29d30e8dcc92c87773625ae708ddca8",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
