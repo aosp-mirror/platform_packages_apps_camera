@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "24509d5b_bde12a8f",
+        "filename": "src/com/android/camera/CameraSettings.java",
+        "patchSetId": 2
+      },
+      "lineNbr": 245,
+      "author": {
+        "id": 1174108
+      },
+      "writtenOn": "2017-05-26T09:59:45Z",
+      "side": 1,
+      "message": "why remove",
+      "range": {
+        "startLine": 245,
+        "startChar": 29,
+        "endLine": 245,
+        "endChar": 33
+      },
+      "revId": "e8fe6683e29d30e8dcc92c87773625ae708ddca8",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    }
+  ]
+}
